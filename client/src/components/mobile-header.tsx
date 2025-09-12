@@ -25,7 +25,7 @@ export default function MobileHeader() {
 
   return (
     <>
-      <header className="lg:hidden bg-card border-b border-border p-4">
+      <header className="lg:hidden bg-card border-b border-border p-4 relative z-50">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold text-primary" data-testid="mobile-app-title">TestFlow</h1>
           <Button 
@@ -33,6 +33,7 @@ export default function MobileHeader() {
             size="icon"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             data-testid="mobile-menu-toggle"
+            className="relative z-10"
           >
             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </Button>
@@ -40,7 +41,7 @@ export default function MobileHeader() {
       </header>
 
       {isMenuOpen && (
-        <div className="lg:hidden bg-card border-b border-border">
+        <div className="lg:hidden bg-card border-b border-border relative z-40">
           <nav className="p-4 space-y-2">
             {navigation.map((item) => {
               const isActive = location === item.href;
