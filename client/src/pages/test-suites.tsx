@@ -26,6 +26,7 @@ const formSchema = z.object({
 
 export default function TestSuites() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSuite, setEditingSuite] = useState<TestSuiteWithStats | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -52,7 +53,9 @@ export default function TestSuites() {
         title: "Success",
         description: "Test suite created successfully",
       });
+      // Invalidate both test suite queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ["/api/test-suites"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/test-suites/with-stats"] });
       form.reset();
       setIsModalOpen(false);
     },
@@ -60,6 +63,32 @@ export default function TestSuites() {
       toast({
         title: "Error",
         description: error.message || "Failed to create test suite",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateSuiteMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof formSchema> }) => {
+      const response = await apiRequest("PUT", `/api/test-suites/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Test suite updated successfully",
+      });
+      // Invalidate both test suite queries to ensure UI updates
+      queryClient.invalidateQueries({ queryKey: ["/api/test-suites"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/test-suites/with-stats"] });
+      form.reset();
+      setEditingSuite(null);
+      setIsModalOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update test suite",
         variant: "destructive",
       });
     },
@@ -74,7 +103,9 @@ export default function TestSuites() {
         title: "Suite Deleted",
         description: "Test suite has been deleted",
       });
+      // Invalidate both test suite queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ["/api/test-suites"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/test-suites/with-stats"] });
     },
     onError: (error: any) => {
       toast({
@@ -86,7 +117,27 @@ export default function TestSuites() {
   });
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
-    createSuiteMutation.mutate(data);
+    if (editingSuite) {
+      updateSuiteMutation.mutate({ id: editingSuite.id, data });
+    } else {
+      createSuiteMutation.mutate(data);
+    }
+  };
+
+  const handleEditSuite = (suite: TestSuiteWithStats) => {
+    setEditingSuite(suite);
+    form.reset({
+      name: suite.name,
+      description: suite.description || "",
+      status: suite.status as "active" | "inactive" | "archived",
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSuite(null);
+    form.reset();
+    setIsModalOpen(false);
   };
 
   const getStatusBadge = (suite: TestSuiteWithStats) => {
@@ -124,7 +175,7 @@ export default function TestSuites() {
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
-                    <DialogTitle>Create New Test Suite</DialogTitle>
+                    <DialogTitle>{editingSuite ? "Edit Test Suite" : "Create New Test Suite"}</DialogTitle>
                   </DialogHeader>
                   
                   <Form {...form}>
@@ -170,17 +221,21 @@ export default function TestSuites() {
                         <Button 
                           type="button" 
                           variant="outline" 
-                          onClick={() => setIsModalOpen(false)}
+                          onClick={handleCancelEdit}
                           data-testid="button-cancel"
                         >
                           Cancel
                         </Button>
                         <Button 
                           type="submit" 
-                          disabled={createSuiteMutation.isPending}
-                          data-testid="button-create-suite"
+                          disabled={createSuiteMutation.isPending || updateSuiteMutation.isPending}
+                          data-testid={editingSuite ? "button-update-suite" : "button-create-suite"}
                         >
-                          {createSuiteMutation.isPending ? "Creating..." : "Create Suite"}
+                          {editingSuite ? (
+                            updateSuiteMutation.isPending ? "Updating..." : "Update Suite"
+                          ) : (
+                            createSuiteMutation.isPending ? "Creating..." : "Create Suite"
+                          )}
                         </Button>
                       </div>
                     </form>
@@ -253,7 +308,12 @@ export default function TestSuites() {
                       )}
                       
                       <div className="flex justify-between pt-4 border-t">
-                        <Button variant="ghost" size="sm" data-testid="button-edit-suite">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleEditSuite(suite)}
+                          data-testid="button-edit-suite"
+                        >
                           <Edit className="w-4 h-4 mr-2" />
                           Edit
                         </Button>
