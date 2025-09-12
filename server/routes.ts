@@ -4,6 +4,9 @@ import { storage } from "./storage";
 import { insertTestSuiteSchema, insertTestCaseSchema, insertTestRunSchema } from "@shared/schema";
 import { z } from "zod";
 
+// Map to track running test execution timers for cancellation
+const runningTestTimers = new Map<string, NodeJS.Timeout>();
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Dashboard Stats
@@ -262,6 +265,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update test case status
       await storage.updateTestCase(testCase.id, { status: 'running' });
 
+      // Simulate test execution completion after a random time (2-10 seconds)
+      const executionTime = Math.random() * 8000 + 2000; // 2-10 seconds
+      const timer = setTimeout(async () => {
+        try {
+          // Check if the test run is still running (could have been stopped)
+          const currentRun = await storage.getTestRun(testRun.id);
+          if (!currentRun || currentRun.status !== 'running') {
+            // Test was stopped, don't update status
+            runningTestTimers.delete(testRun.id);
+            return;
+          }
+
+          // Randomly determine if test passes or fails (80% pass rate)
+          const testPassed = Math.random() < 0.8;
+          const finalStatus = testPassed ? 'passed' : 'failed';
+          
+          // Update the test run with completion status
+          const updatedRun = await storage.updateTestRun(testRun.id, {
+            status: finalStatus,
+            endTime: new Date(),
+            errorMessage: testPassed ? null : 'Test execution failed due to assertion error'
+          });
+          
+          // Update the test case with final status and duration from actual test run
+          if (updatedRun) {
+            const updateData = {
+              status: finalStatus as any,
+              duration: updatedRun.duration || Math.round(executionTime)
+            };
+            await storage.updateTestCase(testCase.id, updateData);
+          }
+          
+          // Clean up timer reference
+          runningTestTimers.delete(testRun.id);
+        } catch (error) {
+          console.error('Failed to complete test execution:', error);
+          // Fallback: mark as failed only if still running
+          try {
+            const currentRun = await storage.getTestRun(testRun.id);
+            if (currentRun && currentRun.status === 'running') {
+              await storage.updateTestRun(testRun.id, {
+                status: 'failed',
+                endTime: new Date(),
+                errorMessage: 'Test execution timed out or failed to complete'
+              });
+              const fallbackUpdateData = {
+                status: 'failed' as any,
+                duration: Math.round(executionTime)
+              };
+              await storage.updateTestCase(testCase.id, fallbackUpdateData);
+            }
+            runningTestTimers.delete(testRun.id);
+          } catch (fallbackError) {
+            console.error('Failed to handle test completion fallback:', fallbackError);
+            runningTestTimers.delete(testRun.id);
+          }
+        }
+      }, executionTime);
+
+      // Track the timer for cancellation
+      runningTestTimers.set(testRun.id, timer);
+
       res.json({ message: "Test execution started", testRun });
     } catch (error) {
       res.status(500).json({ message: "Failed to start test execution" });
@@ -280,6 +345,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const runningTestRun = testRuns.find(tr => tr.status === 'running');
       
       if (runningTestRun) {
+        // Cancel the automatic completion timer if it exists
+        const timer = runningTestTimers.get(runningTestRun.id);
+        if (timer) {
+          clearTimeout(timer);
+          runningTestTimers.delete(runningTestRun.id);
+        }
+        
+        // Update the test run to aborted status
         await storage.updateTestRun(runningTestRun.id, {
           status: 'aborted',
           endTime: new Date(),
