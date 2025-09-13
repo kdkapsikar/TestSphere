@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTestSuiteSchema, insertTestCaseSchema, insertTestRunSchema } from "@shared/schema";
+import { insertTestSuiteSchema, insertTestCaseSchema, insertTestRunSchema, insertTestExecutionSchema, insertDefectSchema } from "@shared/schema";
 import { z } from "zod";
 
 // AI Response Validation Schemas
@@ -20,9 +20,23 @@ const aiScenarioSchema = z.object({
 const aiResponseSchema = z.object({
   scenarios: z.array(aiScenarioSchema).min(1, "At least one scenario is required").max(10, "Too many scenarios")
 });
+
+// AI Test Case Response Validation Schema
+const aiTestCaseSchema = z.object({
+  title: z.string().min(1, "Test case title is required").max(200, "Title too long"),
+  preconditions: z.string().optional(),
+  steps: z.array(z.string()).min(1, "At least one test step is required"),
+  test_data: z.string().optional(),
+  expected_result: z.string().min(1, "Expected result is required")
+});
+
+const aiTestCaseResponseSchema = z.object({
+  test_cases: z.array(aiTestCaseSchema).min(1, "At least one test case is required").max(20, "Too many test cases")
+});
 // Import ES modules with proper TypeScript handling
 import { generateWithAI } from "../services/aiService.js";
 import { generateScenarioPrompt } from "../promptGenerators/generateScenarioPrompt.js";
+import { generateTestCasePrompt } from "../promptGenerators/generateTestCasePrompt.js";
 
 // Map to track running test execution timers for cancellation
 const runningTestTimers = new Map<string, NodeJS.Timeout>();
@@ -217,8 +231,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertTestRunSchema.parse(req.body);
       const testRun = await storage.createTestRun(validatedData);
       
-      // Update test case status to running
-      if (validatedData.testCaseId) {
+      // Update test case status only if the run is starting immediately
+      if (validatedData.testCaseId && testRun.status === 'in_progress') {
         await storage.updateTestCase(validatedData.testCaseId, { status: 'running' });
       }
       
@@ -234,7 +248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/test-runs/:id", async (req, res) => {
     try {
       const validatedData = z.object({
-        status: z.enum(['running', 'passed', 'failed', 'aborted']),
+        status: z.enum(['planned', 'in_progress', 'completed', 'aborted']),
         endTime: z.string().datetime().optional(),
         errorMessage: z.string().optional(),
       }).parse(req.body);
@@ -250,13 +264,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Test run not found" });
       }
 
-      // Update test case status
+      // Update test case status with proper mapping
       if (testRun.testCaseId) {
-        const updateData: any = { status: validatedData.status };
+        const updateData: any = {};
+        
+        // Map TestRun status to appropriate TestCase status
+        if (validatedData.status === 'in_progress') {
+          updateData.status = 'running';
+        } else if (validatedData.status === 'completed') {
+          // Don't automatically set test case status for completed runs
+          // The test result should be determined by actual execution results
+        } else if (validatedData.status === 'aborted') {
+          updateData.status = 'pending'; // Reset to pending when aborted
+        }
+        // 'planned' status doesn't require test case status change
+        
         if (testRun.duration !== null) {
           updateData.duration = testRun.duration;
         }
-        await storage.updateTestCase(testRun.testCaseId, updateData);
+        
+        // Only update if there are changes to make
+        if (Object.keys(updateData).length > 0) {
+          await storage.updateTestCase(testRun.testCaseId, updateData);
+        }
       }
 
       res.json(testRun);
@@ -279,7 +309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create a new test run
       const testRun = await storage.createTestRun({
         testCaseId: testCase.id,
-        status: 'running',
+        status: 'in_progress',
       });
 
       // Update test case status
@@ -291,7 +321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           // Check if the test run is still running (could have been stopped)
           const currentRun = await storage.getTestRun(testRun.id);
-          if (!currentRun || currentRun.status !== 'running') {
+          if (!currentRun || currentRun.status !== 'in_progress') {
             // Test was stopped, don't update status
             runningTestTimers.delete(testRun.id);
             return;
@@ -299,19 +329,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Randomly determine if test passes or fails (80% pass rate)
           const testPassed = Math.random() < 0.8;
-          const finalStatus = testPassed ? 'passed' : 'failed';
+          const testCaseResult = testPassed ? 'passed' : 'failed';
           
-          // Update the test run with completion status
+          // Update the test run with completion status (domain: run lifecycle)
           const updatedRun = await storage.updateTestRun(testRun.id, {
-            status: finalStatus,
+            status: 'completed',
             endTime: new Date(),
             errorMessage: testPassed ? null : 'Test execution failed due to assertion error'
           });
           
-          // Update the test case with final status and duration from actual test run
+          // Update the test case with final result (domain: test result)
           if (updatedRun) {
             const updateData = {
-              status: finalStatus as any,
+              status: testCaseResult,
               duration: updatedRun.duration || Math.round(executionTime)
             };
             await storage.updateTestCase(testCase.id, updateData);
@@ -324,9 +354,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Fallback: mark as failed only if still running
           try {
             const currentRun = await storage.getTestRun(testRun.id);
-            if (currentRun && currentRun.status === 'running') {
+            if (currentRun && currentRun.status === 'in_progress') {
               await storage.updateTestRun(testRun.id, {
-                status: 'failed',
+                status: 'completed',
                 endTime: new Date(),
                 errorMessage: 'Test execution timed out or failed to complete'
               });
@@ -362,7 +392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Find the running test run and stop it
       const testRuns = await storage.getTestRunsByTestCase(testCase.id);
-      const runningTestRun = testRuns.find(tr => tr.status === 'running');
+      const runningTestRun = testRuns.find(tr => tr.status === 'in_progress');
       
       if (runningTestRun) {
         // Cancel the automatic completion timer if it exists
@@ -557,6 +587,610 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+
+// POST /api/scenarios/:scenarioId/generate-test-cases - Generate test cases from a scenario using AI
+app.post('/api/scenarios/:scenarioId/generate-test-cases', async (req, res) => {
+  try {
+    const { scenarioId } = req.params;
+    
+    if (!scenarioId || typeof scenarioId !== 'string') {
+      return res.status(400).json({ 
+        message: "Invalid scenario ID",
+        details: "scenarioId parameter is required and must be a string"
+      });
+    }
+
+    // Fetch the scenario from the database
+    const scenario = await storage.getTestScenario(scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ 
+        message: "Test scenario not found",
+        details: `No scenario found with ID: ${scenarioId}`
+      });
+    }
+
+    console.log(`Generating test cases for scenario: ${scenario.title} (${scenario.scenarioId})`);
+
+    // Create the AI prompt
+    const prompt = generateTestCasePrompt({
+      scenario_id: scenario.scenarioId || scenario.id,
+      title: scenario.title,
+      description: scenario.description || '',
+      test_type: scenario.testType || 'Functional',
+      priority: scenario.priority || 'Medium'
+    });
+
+    // Call AI service
+    const aiResponse = await generateWithAI(prompt);
+    
+    // Extract and parse JSON from AI response (handle code fences and extra text)
+    let parsedResponse;
+    try {
+      // First try direct parsing
+      try {
+        parsedResponse = JSON.parse(aiResponse);
+      } catch (directParseError) {
+        console.log('Direct JSON parse failed, attempting extraction...');
+        
+        // Try to extract JSON from code fences or surrounding text
+        const jsonMatch = aiResponse.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/) || 
+                         aiResponse.match(/(\{[\s\S]*\})/);
+        
+        if (jsonMatch) {
+          parsedResponse = JSON.parse(jsonMatch[1]);
+        } else {
+          throw directParseError;
+        }
+      }
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      console.error('AI Response content:', aiResponse.substring(0, 500) + '...');
+      return res.status(500).json({ 
+        message: "AI service returned invalid JSON format",
+        details: "The AI response could not be parsed as valid JSON. Please try again."
+      });
+    }
+
+    // Validate response structure with Zod
+    let validatedResponse;
+    try {
+      validatedResponse = aiTestCaseResponseSchema.parse(parsedResponse);
+    } catch (validationError) {
+      console.error('AI response validation failed:', validationError);
+      return res.status(500).json({ 
+        message: "AI service returned invalid response format",
+        details: validationError instanceof z.ZodError ? 
+          validationError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') :
+          "Response structure validation failed"
+      });
+    }
+
+    // Save the new test cases to the database with detailed tracking
+    const testCaseResults = [];
+    const createdTestCases = [];
+    const errors = [];
+
+    for (const testCase of validatedResponse.test_cases) {
+      try {
+        // Normalize data before database insertion
+        const testCaseData = {
+          title: testCase.title?.trim(),
+          linkedScenarioId: scenario.id,
+          preconditions: testCase.preconditions?.trim(),
+          testSteps: testCase.steps ? JSON.stringify(testCase.steps) : null,
+          testData: testCase.test_data?.trim(),
+          expectedResult: testCase.expected_result?.trim(),
+          priority: scenario.priority || 'medium',
+          module: scenario.module || 'General',
+          testType: 'manual',
+          author: scenario.author,
+          automationStatus: 'not_automated',
+          status: 'pending'
+        };
+
+        const newTestCase = await storage.createTestCase(testCaseData);
+        createdTestCases.push(newTestCase);
+        testCaseResults.push({
+          title: testCase.title,
+          status: 'created',
+          id: newTestCase.id
+        });
+      } catch (dbError) {
+        console.error(`Failed to save test case ${testCase.title}:`, dbError);
+        errors.push({
+          title: testCase.title,
+          status: 'failed',
+          error: dbError.message || 'Database error'
+        });
+        testCaseResults.push({
+          title: testCase.title,
+          status: 'failed',
+          error: dbError.message || 'Database error'
+        });
+      }
+    }
+
+    // Determine response status code based on results
+    const successCount = createdTestCases.length;
+    const totalCount = parsedResponse.test_cases.length;
+    
+    if (successCount === 0) {
+      return res.status(500).json({ 
+        message: "Failed to save any test cases to database",
+        details: "All test case creation attempts failed",
+        scenario: {
+          id: scenario.id,
+          title: scenario.title
+        },
+        results: testCaseResults,
+        summary: {
+          total: totalCount,
+          created: successCount,
+          failed: errors.length
+        }
+      });
+    }
+
+    // Return detailed results (207 Multi-Status if partial success, 201 if all succeeded)
+    const statusCode = successCount === totalCount ? 201 : 207;
+    res.status(statusCode).json({
+      message: successCount === totalCount ? 
+        `Successfully generated ${successCount} test cases` :
+        `Generated ${successCount} of ${totalCount} test cases`,
+      scenario: {
+        id: scenario.id,
+        title: scenario.title
+      },
+      testCases: createdTestCases,
+      results: testCaseResults,
+      summary: {
+        total: totalCount,
+        created: successCount,
+        failed: errors.length
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error in generate-test-cases route:', error);
+    
+    // Handle specific error types
+    if (error.message && error.message.includes('DEEPSEEK_API_KEY')) {
+      return res.status(500).json({ 
+        message: "AI service configuration error",
+        details: "DeepSeek API key is not configured"
+      });
+    } else if (error.message && (error.message.includes('Network error') || error.message.includes('connection'))) {
+      return res.status(503).json({ 
+        message: "AI service temporarily unavailable",
+        details: "Unable to connect to DeepSeek API. Please try again later."
+      });
+    } else if (error.message && error.message.includes('Rate limit')) {
+      return res.status(429).json({ 
+        message: "AI service rate limit exceeded",
+        details: "Please wait before making another request"
+      });
+    } else {
+      return res.status(500).json({ 
+        message: "Failed to generate test cases",
+        details: error.message || 'Unknown error occurred'
+      });
+    }
+  }
+});
+
+// PUT /api/test-executions/:executionId - Update test execution with manual results and auto-create defects for failures
+app.put('/api/test-executions/:executionId', async (req, res) => {
+  try {
+    const { executionId } = req.params;
+    const { actual_result, execution_status, evidence_url } = req.body;
+    
+    // Validate input parameters
+    if (!executionId || typeof executionId !== 'string') {
+      return res.status(400).json({ 
+        message: "Invalid execution ID",
+        details: "executionId parameter is required and must be a string"
+      });
+    }
+
+    if (!execution_status || !['pass', 'fail', 'blocked', 'not_executed', 'skip'].includes(execution_status)) {
+      return res.status(400).json({ 
+        message: "Invalid execution status",
+        details: "execution_status must be one of: pass, fail, blocked, not_executed, skip"
+      });
+    }
+
+    // Get the execution record
+    const execution = await storage.getTestExecution(executionId);
+    if (!execution) {
+      return res.status(404).json({ 
+        message: "Test execution not found",
+        details: `No test execution found with ID: ${executionId}`
+      });
+    }
+
+    // Update the execution record
+    const executionUpdate = {
+      actualResult: actual_result?.trim(),
+      executionStatus: execution_status,
+      executedAt: new Date(),
+      evidenceUrl: evidence_url?.trim() || null
+    };
+
+    const updatedExecution = await storage.updateTestExecution(executionId, executionUpdateData);
+    
+    if (!updatedExecution) {
+      return res.status(500).json({ 
+        message: "Failed to update test execution",
+        details: "Database update operation failed"
+      });
+    }
+
+    let newDefect = null;
+    
+    // Auto-create defect if execution failed
+    if (execution_status === 'fail') {
+      try {
+        // Get the associated test case for defect details
+        const testCase = execution.testCaseId ? await storage.getTestCase(execution.testCaseId) : null;
+        
+        const defectData = {
+          title: `Failed Test: ${testCase?.title || testCase?.name || 'Unknown Test'}`,
+          description: actual_result?.trim() || 'Test execution failed',
+          stepsToReproduce: testCase?.testSteps ? 
+            (typeof testCase.testSteps === 'string' ? testCase.testSteps : JSON.stringify(testCase.testSteps)) : 
+            'Follow test case steps',
+          expectedResult: testCase?.expectedResult || 'Test should pass',
+          actualResult: actual_result?.trim() || 'Test failed',
+          severity: 'medium',
+          priority: testCase?.priority || 'medium',
+          status: 'new',
+          module: testCase?.module || 'General',
+          environment: 'development',
+          reportedBy: 'System (Auto-generated)',
+          linkedTestCaseId: execution.testCaseId,
+          linkedRequirementId: testCase?.linkedRequirementId || null
+        };
+
+        newDefect = await storage.createDefect(defectData);
+        console.log(`Auto-created defect ${newDefect.id} for failed test execution ${executionId}`);
+      } catch (defectError) {
+        console.error('Failed to create automatic defect:', defectError);
+        // Don't fail the execution update if defect creation fails
+      }
+    }
+
+    // Return the updated execution and new defect ID
+    const response = {
+      message: `Test execution updated successfully`,
+      execution: updatedExecution,
+      defect: newDefect ? {
+        id: newDefect.id,
+        title: newDefect.title,
+        status: newDefect.status
+      } : null
+    };
+
+    res.status(200).json(response);
+
+  } catch (error: any) {
+    console.error('Error in update test execution route:', error);
+    
+    return res.status(500).json({ 
+      message: "Failed to update test execution",
+      details: error.message || 'Unknown error occurred'
+    });
+  }
+});
+
+// GET /api/defects/dashboard/stats - Get defect counts grouped by status, severity, and priority
+app.get('/api/defects/dashboard/stats', async (req, res) => {
+  try {
+    const { project, module } = req.query;
+    
+    // SQL query for defect dashboard statistics
+    let defectStatsQuery = `
+      SELECT 
+        status,
+        severity,
+        priority,
+        COUNT(*) as count
+      FROM defects 
+    `;
+    
+    const conditions = [];
+    const params = [];
+    
+    if (project && typeof project === 'string') {
+      conditions.push('module = $' + (params.length + 1));
+      params.push(project);
+    }
+    
+    if (module && typeof module === 'string') {
+      conditions.push('module = $' + (params.length + 1));
+      params.push(module);
+    }
+    
+    if (conditions.length > 0) {
+      defectStatsQuery += ' WHERE ' + conditions.join(' AND ');
+    }
+    
+    defectStatsQuery += `
+      GROUP BY status, severity, priority
+      ORDER BY 
+        CASE status 
+          WHEN 'new' THEN 1
+          WHEN 'assigned' THEN 2
+          WHEN 'in_progress' THEN 3
+          WHEN 'resolved' THEN 4
+          WHEN 'closed' THEN 5
+          WHEN 'reopened' THEN 6
+          ELSE 7
+        END,
+        CASE severity 
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END,
+        CASE priority 
+          WHEN 'high' THEN 1
+          WHEN 'medium' THEN 2
+          WHEN 'low' THEN 3
+          ELSE 4
+        END
+    `;
+    
+    // Additional summary queries
+    const summaryQuery = `
+      SELECT 
+        COUNT(*) as total_defects,
+        COUNT(CASE WHEN status = 'new' THEN 1 END) as new_defects,
+        COUNT(CASE WHEN status = 'assigned' THEN 1 END) as assigned_defects,
+        COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress_defects,
+        COUNT(CASE WHEN status = 'resolved' THEN 1 END) as resolved_defects,
+        COUNT(CASE WHEN status = 'closed' THEN 1 END) as closed_defects,
+        COUNT(CASE WHEN severity = 'critical' THEN 1 END) as critical_defects,
+        COUNT(CASE WHEN severity = 'high' THEN 1 END) as high_severity_defects
+      FROM defects
+      ${conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''}
+    `;
+    
+    // For demonstration, return the SQL queries
+    // In production, these would be executed against the database
+    res.status(200).json({
+      message: "Defect dashboard statistics queries",
+      queries: {
+        defectStats: {
+          sql: defectStatsQuery,
+          params: params,
+          description: "Groups defects by status, severity, and priority with counts"
+        },
+        summary: {
+          sql: summaryQuery,
+          params: params,
+          description: "Provides summary counts by status and severity"
+        }
+      },
+      // Mock data for demonstration
+      mockData: {
+        groupedStats: [
+          { status: 'new', severity: 'critical', priority: 'high', count: 3 },
+          { status: 'new', severity: 'high', priority: 'high', count: 5 },
+          { status: 'assigned', severity: 'medium', priority: 'medium', count: 8 },
+          { status: 'in_progress', severity: 'low', priority: 'low', count: 2 },
+          { status: 'resolved', severity: 'medium', priority: 'medium', count: 12 }
+        ],
+        summary: {
+          total_defects: 30,
+          new_defects: 8,
+          assigned_defects: 10,
+          in_progress_defects: 5,
+          resolved_defects: 12,
+          closed_defects: 5,
+          critical_defects: 3,
+          high_severity_defects: 8
+        }
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('Error in defect dashboard stats route:', error);
+    return res.status(500).json({ 
+      message: "Failed to fetch defect dashboard statistics",
+      details: error.message || 'Unknown error occurred'
+    });
+  }
+});
+
+// GET /api/defects - Get paginated list of defects with filtering
+app.get('/api/defects', async (req, res) => {
+  try {
+    const { 
+      page = '1', 
+      limit = '20', 
+      status, 
+      assigned_to, 
+      reported_by,
+      severity,
+      priority,
+      module,
+      sort_by = 'date_reported',
+      sort_order = 'desc'
+    } = req.query;
+    
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const offset = (pageNum - 1) * limitNum;
+    
+    // Validate sort parameters
+    const validSortFields = ['date_reported', 'title', 'status', 'severity', 'priority', 'assigned_to'];
+    const validSortOrders = ['asc', 'desc'];
+    
+    const sortField = validSortFields.includes(sort_by as string) ? sort_by : 'date_reported';
+    const sortDirection = validSortOrders.includes(sort_order as string) ? sort_order : 'desc';
+    
+    // Build the main query for paginated defects
+    let defectsQuery = `
+      SELECT 
+        d.id,
+        d.defect_id,
+        d.title,
+        d.description,
+        d.status,
+        d.severity,
+        d.priority,
+        d.module,
+        d.environment,
+        d.reported_by,
+        d.date_reported,
+        d.assigned_to,
+        d.linked_test_case_id,
+        d.linked_requirement_id,
+        tc.title as test_case_title,
+        tc.test_case_id,
+        r.title as requirement_title,
+        r.requirement_id
+      FROM defects d
+      LEFT JOIN test_cases tc ON d.linked_test_case_id = tc.id
+      LEFT JOIN requirements r ON d.linked_requirement_id = r.id
+    `;
+    
+    // Build WHERE conditions
+    const conditions = [];
+    const params = [];
+    
+    if (status && typeof status === 'string') {
+      conditions.push('d.status = $' + (params.length + 1));
+      params.push(status);
+    }
+    
+    if (assigned_to && typeof assigned_to === 'string') {
+      conditions.push('d.assigned_to = $' + (params.length + 1));
+      params.push(assigned_to);
+    }
+    
+    if (reported_by && typeof reported_by === 'string') {
+      conditions.push('d.reported_by = $' + (params.length + 1));
+      params.push(reported_by);
+    }
+    
+    if (severity && typeof severity === 'string') {
+      conditions.push('d.severity = $' + (params.length + 1));
+      params.push(severity);
+    }
+    
+    if (priority && typeof priority === 'string') {
+      conditions.push('d.priority = $' + (params.length + 1));
+      params.push(priority);
+    }
+    
+    if (module && typeof module === 'string') {
+      conditions.push('d.module = $' + (params.length + 1));
+      params.push(module);
+    }
+    
+    if (conditions.length > 0) {
+      defectsQuery += ' WHERE ' + conditions.join(' AND ');
+    }
+    
+    defectsQuery += ` ORDER BY d.${sortField} ${sortDirection.toUpperCase()}`;
+    defectsQuery += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limitNum, offset);
+    
+    // Count query for pagination
+    let countQuery = 'SELECT COUNT(*) as total FROM defects d';
+    if (conditions.length > 0) {
+      countQuery += ' WHERE ' + conditions.join(' AND ');
+    }
+    
+    // For demonstration, return the SQL queries
+    res.status(200).json({
+      message: "Paginated defects list query",
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        offset: offset
+      },
+      filters: {
+        status,
+        assigned_to,
+        reported_by,
+        severity,
+        priority,
+        module
+      },
+      sorting: {
+        field: sortField,
+        order: sortDirection
+      },
+      queries: {
+        defects: {
+          sql: defectsQuery,
+          params: params,
+          description: "Fetches paginated defects with joins to test cases and requirements"
+        },
+        count: {
+          sql: countQuery,
+          params: params.slice(0, -2), // Remove limit and offset for count
+          description: "Gets total count for pagination"
+        }
+      },
+      // Mock data for demonstration
+      mockData: {
+        defects: [
+          {
+            id: "def-1",
+            defect_id: "BUG-1001",
+            title: "Login button not working on mobile",
+            description: "Users cannot tap the login button on mobile devices",
+            status: "assigned",
+            severity: "high",
+            priority: "high",
+            module: "Authentication",
+            environment: "production",
+            reported_by: "john.doe@company.com",
+            date_reported: "2024-01-15T10:30:00Z",
+            assigned_to: "jane.smith@company.com",
+            test_case_title: "Mobile Login Test",
+            requirement_title: "User Authentication System"
+          },
+          {
+            id: "def-2",
+            defect_id: "BUG-1002",
+            title: "Payment processing timeout",
+            description: "Payment gateway times out after 30 seconds",
+            status: "new",
+            severity: "critical",
+            priority: "high",
+            module: "Payment",
+            environment: "production",
+            reported_by: "test.user@company.com",
+            date_reported: "2024-01-16T14:20:00Z",
+            assigned_to: null,
+            test_case_title: "Payment Flow Test",
+            requirement_title: "Payment Processing"
+          }
+        ],
+        pagination: {
+          total: 45,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(45 / limitNum),
+          hasNext: pageNum * limitNum < 45,
+          hasPrev: pageNum > 1
+        }
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('Error in defects list route:', error);
+    return res.status(500).json({ 
+      message: "Failed to fetch defects list",
+      details: error.message || 'Unknown error occurred'
+    });
+  }
+});
 
   const httpServer = createServer(app);
   return httpServer;

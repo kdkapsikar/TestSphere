@@ -11,11 +11,17 @@ import {
   type InsertRequirement,
   type TestScenario,
   type InsertTestScenario,
+  type TestExecution,
+  type InsertTestExecution,
+  type Defect,
+  type InsertDefect,
   testSuites,
   testCases,
   testRuns,
   requirements,
-  testScenarios
+  testScenarios,
+  testExecutions,
+  defects
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from "drizzle-orm/neon-http";
@@ -51,6 +57,7 @@ export interface IStorage {
   getTestCases(): Promise<TestCase[]>;
   getTestCasesWithSuite(): Promise<TestCaseWithSuite[]>;
   getTestCasesBySuite(suiteId: string): Promise<TestCase[]>;
+  getTestCasesByScenario(scenarioId: string): Promise<TestCase[]>;
   createTestCase(testCase: InsertTestCase): Promise<TestCase>;
   updateTestCase(id: string, testCase: Partial<InsertTestCase>): Promise<TestCase | undefined>;
   deleteTestCase(id: string): Promise<boolean>;
@@ -61,6 +68,23 @@ export interface IStorage {
   getTestRunsByTestCase(testCaseId: string): Promise<TestRun[]>;
   createTestRun(testRun: InsertTestRun): Promise<TestRun>;
   updateTestRun(id: string, testRun: Partial<TestRun>): Promise<TestRun | undefined>;
+
+  // Test Executions
+  getTestExecution(id: string): Promise<TestExecution | undefined>;
+  getTestExecutions(): Promise<TestExecution[]>;
+  getTestExecutionsByRun(testRunId: string): Promise<TestExecution[]>;
+  createTestExecution(execution: InsertTestExecution): Promise<TestExecution>;
+  updateTestExecution(id: string, execution: Partial<InsertTestExecution>): Promise<TestExecution | undefined>;
+  deleteTestExecution(id: string): Promise<boolean>;
+
+  // Defects
+  getDefect(id: string): Promise<Defect | undefined>;
+  getDefects(): Promise<Defect[]>;
+  getDefectsByStatus(status: string): Promise<Defect[]>;
+  getDefectsByAssignee(assignedTo: string): Promise<Defect[]>;
+  createDefect(defect: InsertDefect): Promise<Defect>;
+  updateDefect(id: string, defect: Partial<InsertDefect>): Promise<Defect | undefined>;
+  deleteDefect(id: string): Promise<boolean>;
 
   // Dashboard Stats
   getDashboardStats(): Promise<{
@@ -103,6 +127,8 @@ export class MemStorage implements IStorage {
     this.testSuites = new Map();
     this.testCases = new Map();
     this.testRuns = new Map();
+    this.testExecutions = new Map();
+    this.defects = new Map();
     this.activity = [];
 
     // Initialize with some default test suites
@@ -184,8 +210,13 @@ export class MemStorage implements IStorage {
     const newTestCase: TestCase = {
       ...testCase,
       id,
+      name: testCase.name || null,
+      title: testCase.title || null,
       description: testCase.description || null,
       suiteId: testCase.suiteId || null,
+      module: testCase.module || null,
+      author: testCase.author || null,
+      testType: testCase.testType || null,
       priority: testCase.priority || "medium",
       status: testCase.status || "pending",
       lastRun: testCase.status !== 'pending' ? now : null,
@@ -200,10 +231,10 @@ export class MemStorage implements IStorage {
     this.activity.unshift({
       id: randomUUID(),
       type: 'test_created',
-      testCaseName: testCase.name,
+      testCaseName: testCase.name || testCase.title || "Unnamed Test",
       suiteName: suite?.name,
       timestamp: now,
-      message: `New test case created: "${testCase.name}"`
+      message: `New test case created: "${testCase.name || testCase.title || "Unnamed Test"}"`
     });
 
     return newTestCase;
@@ -214,7 +245,7 @@ export class MemStorage implements IStorage {
     this.activity.unshift({
       id: randomUUID(),
       type,
-      testCaseName: testCase.name,
+      testCaseName: testCase.name || testCase.title || "Unnamed Test",
       suiteName: suite?.name,
       timestamp: new Date(),
       message
@@ -418,6 +449,7 @@ export class MemStorage implements IStorage {
     const newRequirement: Requirement = {
       ...requirement,
       id,
+      requirementId: requirement.requirementId || null,
       description: requirement.description || null,
       module: requirement.module || null,
       priority: requirement.priority || "medium",
@@ -487,6 +519,123 @@ export class MemStorage implements IStorage {
 
   async deleteTestScenario(id: string): Promise<boolean> {
     return this.testScenarios.delete(id);
+  }
+
+  // Test Cases by Scenario
+  async getTestCasesByScenario(scenarioId: string): Promise<TestCase[]> {
+    return Array.from(this.testCases.values())
+      .filter(tc => tc.linkedScenarioId === scenarioId)
+      .sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
+  }
+
+  // Test Executions
+  async getTestExecution(id: string): Promise<TestExecution | undefined> {
+    return this.testExecutions.get(id);
+  }
+
+  async getTestExecutions(): Promise<TestExecution[]> {
+    return Array.from(this.testExecutions.values());
+  }
+
+  async getTestExecutionsByRun(testRunId: string): Promise<TestExecution[]> {
+    return Array.from(this.testExecutions.values())
+      .filter(execution => execution.testRunId === testRunId);
+  }
+
+  async createTestExecution(execution: InsertTestExecution): Promise<TestExecution> {
+    const id = randomUUID();
+    const newExecution: TestExecution = {
+      ...execution,
+      id,
+      actualResult: execution.actualResult || null,
+      executionStatus: execution.executionStatus || "not_executed",
+      executedAt: execution.executedAt || null,
+      evidenceUrl: execution.evidenceUrl || null
+    };
+    this.testExecutions.set(id, newExecution);
+    return newExecution;
+  }
+
+  async updateTestExecution(id: string, execution: Partial<InsertTestExecution>): Promise<TestExecution | undefined> {
+    const existing = this.testExecutions.get(id);
+    if (!existing) return undefined;
+
+    const updated: TestExecution = {
+      ...existing,
+      ...execution
+    };
+    this.testExecutions.set(id, updated);
+    return updated;
+  }
+
+  async deleteTestExecution(id: string): Promise<boolean> {
+    return this.testExecutions.delete(id);
+  }
+
+  // Defects
+  async getDefect(id: string): Promise<Defect | undefined> {
+    return this.defects.get(id);
+  }
+
+  async getDefects(): Promise<Defect[]> {
+    return Array.from(this.defects.values())
+      .sort((a, b) => b.dateReported.getTime() - a.dateReported.getTime());
+  }
+
+  async getDefectsByStatus(status: string): Promise<Defect[]> {
+    return Array.from(this.defects.values())
+      .filter(defect => defect.status === status)
+      .sort((a, b) => b.dateReported.getTime() - a.dateReported.getTime());
+  }
+
+  async getDefectsByAssignee(assignedTo: string): Promise<Defect[]> {
+    return Array.from(this.defects.values())
+      .filter(defect => defect.assignedTo === assignedTo)
+      .sort((a, b) => b.dateReported.getTime() - a.dateReported.getTime());
+  }
+
+  async createDefect(defect: InsertDefect): Promise<Defect> {
+    const id = randomUUID();
+    const now = new Date();
+    const newDefect: Defect = {
+      ...defect,
+      id,
+      defectId: defect.defectId || null,
+      description: defect.description || null,
+      stepsToReproduce: defect.stepsToReproduce || null,
+      expectedResult: defect.expectedResult || null,
+      actualResult: defect.actualResult || null,
+      severity: defect.severity || "medium",
+      priority: defect.priority || "medium",
+      status: defect.status || "new",
+      module: defect.module || null,
+      environment: defect.environment || null,
+      assignedTo: defect.assignedTo || null,
+      linkedTestCaseId: defect.linkedTestCaseId || null,
+      linkedRequirementId: defect.linkedRequirementId || null,
+      foundInVersion: defect.foundInVersion || null,
+      fixedInVersion: defect.fixedInVersion || null,
+      resolutionType: defect.resolutionType || null,
+      dateReported: now
+    };
+    this.defects.set(id, newDefect);
+    return newDefect;
+  }
+
+  async updateDefect(id: string, defect: Partial<InsertDefect>): Promise<Defect | undefined> {
+    const existing = this.defects.get(id);
+    if (!existing) return undefined;
+
+    const updated: Defect = {
+      ...existing,
+      ...defect
+    };
+    this.defects.set(id, updated);
+    return updated;
+  }
+
+  async deleteDefect(id: string): Promise<boolean> {
+    return this.defects.delete(id);
   }
 
   // Recent Activity
