@@ -75,6 +75,4 @@ Generate the test scenarios now:`;
   return prompt;
 }
 
-module.exports = {
-  generateScenarioPrompt
-};
+export { generateScenarioPrompt };

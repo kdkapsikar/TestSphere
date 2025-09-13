@@ -7,9 +7,15 @@ import {
   type InsertTestRun,
   type TestCaseWithSuite,
   type TestSuiteWithStats,
+  type Requirement,
+  type InsertRequirement,
+  type TestScenario,
+  type InsertTestScenario,
   testSuites,
   testCases,
-  testRuns
+  testRuns,
+  requirements,
+  testScenarios
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from "drizzle-orm/neon-http";
@@ -17,6 +23,21 @@ import { neon } from "@neondatabase/serverless";
 import { eq, sql, desc, and } from "drizzle-orm";
 
 export interface IStorage {
+  // Requirements
+  getRequirement(id: string): Promise<Requirement | undefined>;
+  getRequirements(): Promise<Requirement[]>;
+  createRequirement(requirement: InsertRequirement): Promise<Requirement>;
+  updateRequirement(id: string, requirement: Partial<InsertRequirement>): Promise<Requirement | undefined>;
+  deleteRequirement(id: string): Promise<boolean>;
+
+  // Test Scenarios
+  getTestScenario(id: string): Promise<TestScenario | undefined>;
+  getTestScenarios(): Promise<TestScenario[]>;
+  getTestScenariosByRequirement(requirementId: string): Promise<TestScenario[]>;
+  createTestScenario(scenario: InsertTestScenario): Promise<TestScenario>;
+  updateTestScenario(id: string, scenario: Partial<InsertTestScenario>): Promise<TestScenario | undefined>;
+  deleteTestScenario(id: string): Promise<boolean>;
+
   // Test Suites
   getTestSuite(id: string): Promise<TestSuite | undefined>;
   getTestSuites(): Promise<TestSuite[]>;
@@ -62,6 +83,8 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  private requirements: Map<string, Requirement>;
+  private testScenarios: Map<string, TestScenario>;
   private testSuites: Map<string, TestSuite>;
   private testCases: Map<string, TestCase>;
   private testRuns: Map<string, TestRun>;
@@ -75,6 +98,8 @@ export class MemStorage implements IStorage {
   }>;
 
   constructor() {
+    this.requirements = new Map();
+    this.testScenarios = new Map();
     this.testSuites = new Map();
     this.testCases = new Map();
     this.testRuns = new Map();
@@ -378,6 +403,92 @@ export class MemStorage implements IStorage {
     };
   }
 
+  // Requirements (stub implementations)
+  async getRequirement(id: string): Promise<Requirement | undefined> {
+    return this.requirements.get(id);
+  }
+
+  async getRequirements(): Promise<Requirement[]> {
+    return Array.from(this.requirements.values()).sort((a, b) => b.dateCreated.getTime() - a.dateCreated.getTime());
+  }
+
+  async createRequirement(requirement: InsertRequirement): Promise<Requirement> {
+    const id = randomUUID();
+    const now = new Date();
+    const newRequirement: Requirement = {
+      ...requirement,
+      id,
+      description: requirement.description || null,
+      module: requirement.module || null,
+      priority: requirement.priority || "medium",
+      dateCreated: now
+    };
+    this.requirements.set(id, newRequirement);
+    return newRequirement;
+  }
+
+  async updateRequirement(id: string, requirement: Partial<InsertRequirement>): Promise<Requirement | undefined> {
+    const existing = this.requirements.get(id);
+    if (!existing) return undefined;
+
+    const updated: Requirement = {
+      ...existing,
+      ...requirement
+    };
+    this.requirements.set(id, updated);
+    return updated;
+  }
+
+  async deleteRequirement(id: string): Promise<boolean> {
+    return this.requirements.delete(id);
+  }
+
+  // Test Scenarios (stub implementations)
+  async getTestScenario(id: string): Promise<TestScenario | undefined> {
+    return this.testScenarios.get(id);
+  }
+
+  async getTestScenarios(): Promise<TestScenario[]> {
+    return Array.from(this.testScenarios.values());
+  }
+
+  async getTestScenariosByRequirement(requirementId: string): Promise<TestScenario[]> {
+    return Array.from(this.testScenarios.values())
+      .filter(scenario => scenario.linkedRequirementId === requirementId);
+  }
+
+  async createTestScenario(scenario: InsertTestScenario): Promise<TestScenario> {
+    const id = randomUUID();
+    const newScenario: TestScenario = {
+      ...scenario,
+      id,
+      description: scenario.description || null,
+      module: scenario.module || null,
+      testType: scenario.testType || null,
+      priority: scenario.priority || "medium",
+      reviewer: scenario.reviewer || null,
+      status: scenario.status || "draft"
+    };
+    this.testScenarios.set(id, newScenario);
+    return newScenario;
+  }
+
+  async updateTestScenario(id: string, scenario: Partial<InsertTestScenario>): Promise<TestScenario | undefined> {
+    const existing = this.testScenarios.get(id);
+    if (!existing) return undefined;
+
+    const updated: TestScenario = {
+      ...existing,
+      ...scenario
+    };
+    this.testScenarios.set(id, updated);
+    return updated;
+  }
+
+  async deleteTestScenario(id: string): Promise<boolean> {
+    return this.testScenarios.delete(id);
+  }
+
   // Recent Activity
   async getRecentActivity(): Promise<Array<{
     id: string;
@@ -658,6 +769,80 @@ export class DbStorage implements IStorage {
       .where(eq(testRuns.id, id))
       .returning();
     return result[0];
+  }
+
+  // Requirements
+  async getRequirement(id: string): Promise<Requirement | undefined> {
+    const result = await this.db.select().from(requirements).where(eq(requirements.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getRequirements(): Promise<Requirement[]> {
+    return await this.db.select().from(requirements).orderBy(desc(requirements.dateCreated));
+  }
+
+  async createRequirement(requirement: InsertRequirement): Promise<Requirement> {
+    const result = await this.db.insert(requirements).values({
+      ...requirement,
+      description: requirement.description || null,
+      module: requirement.module || null,
+      priority: requirement.priority || "medium"
+    }).returning();
+    return result[0];
+  }
+
+  async updateRequirement(id: string, requirement: Partial<InsertRequirement>): Promise<Requirement | undefined> {
+    const result = await this.db.update(requirements)
+      .set(requirement)
+      .where(eq(requirements.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteRequirement(id: string): Promise<boolean> {
+    const result = await this.db.delete(requirements).where(eq(requirements.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Test Scenarios
+  async getTestScenario(id: string): Promise<TestScenario | undefined> {
+    const result = await this.db.select().from(testScenarios).where(eq(testScenarios.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getTestScenarios(): Promise<TestScenario[]> {
+    return await this.db.select().from(testScenarios).orderBy(desc(testScenarios.id));
+  }
+
+  async getTestScenariosByRequirement(requirementId: string): Promise<TestScenario[]> {
+    return await this.db.select().from(testScenarios)
+      .where(eq(testScenarios.linkedRequirementId, requirementId));
+  }
+
+  async createTestScenario(scenario: InsertTestScenario): Promise<TestScenario> {
+    const result = await this.db.insert(testScenarios).values({
+      ...scenario,
+      description: scenario.description || null,
+      module: scenario.module || null,
+      testType: scenario.testType || null,
+      priority: scenario.priority || "medium",
+      reviewer: scenario.reviewer || null,
+      status: scenario.status || "draft"
+    }).returning();
+    return result[0];
+  }
+
+  async updateTestScenario(id: string, scenario: Partial<InsertTestScenario>): Promise<TestScenario | undefined> {
+    const result = await this.db.update(testScenarios)
+      .set(scenario)
+      .where(eq(testScenarios.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTestScenario(id: string): Promise<boolean> {
+    const result = await this.db.delete(testScenarios).where(eq(testScenarios.id, id));
+    return result.rowCount > 0;
   }
 
   // Dashboard Stats

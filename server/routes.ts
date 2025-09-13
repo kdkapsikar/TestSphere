@@ -3,6 +3,10 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTestSuiteSchema, insertTestCaseSchema, insertTestRunSchema } from "@shared/schema";
 import { z } from "zod";
+// @ts-ignore
+import { generateWithAI } from "../services/aiService.js";
+// @ts-ignore
+import { generateScenarioPrompt } from "../promptGenerators/generateScenarioPrompt.js";
 
 // Map to track running test execution timers for cancellation
 const runningTestTimers = new Map<string, NodeJS.Timeout>();
@@ -365,6 +369,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Test execution stopped" });
     } catch (error) {
       res.status(500).json({ message: "Failed to stop test execution" });
+    }
+  });
+
+  // Requirements AI Generation Route
+  app.post("/api/requirements/:reqId/generate-scenarios", async (req, res) => {
+    try {
+      const requirementId = req.params.reqId;
+      
+      // Fetch the requirement from the database
+      const requirement = await storage.getRequirement(requirementId);
+      if (!requirement) {
+        return res.status(404).json({ message: "Requirement not found" });
+      }
+
+      // Generate AI prompt
+      const prompt = generateScenarioPrompt(requirement);
+      
+      // Call AI service
+      const aiResponse = await generateWithAI(prompt);
+      
+      // Parse the JSON response
+      let parsedResponse;
+      try {
+        parsedResponse = JSON.parse(aiResponse);
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', parseError);
+        return res.status(500).json({ 
+          message: "AI service returned invalid JSON format",
+          details: "The AI response could not be parsed as valid JSON"
+        });
+      }
+
+      // Validate response structure
+      if (!parsedResponse.scenarios || !Array.isArray(parsedResponse.scenarios)) {
+        return res.status(500).json({ 
+          message: "AI service returned invalid response format",
+          details: "Expected 'scenarios' array in response"
+        });
+      }
+
+      // Save the new test scenarios to the database
+      const createdScenarios = [];
+      for (const scenario of parsedResponse.scenarios) {
+        try {
+          const newScenario = await storage.createTestScenario({
+            scenarioId: scenario.scenario_id,
+            title: scenario.title,
+            description: scenario.description,
+            linkedRequirementId: requirementId,
+            module: requirement.module,
+            testType: scenario.test_type,
+            priority: scenario.priority,
+            author: requirement.author,
+            status: "draft"
+          });
+          createdScenarios.push(newScenario);
+        } catch (dbError) {
+          console.error('Failed to save scenario to database:', dbError);
+          // Continue with other scenarios even if one fails
+        }
+      }
+
+      if (createdScenarios.length === 0) {
+        return res.status(500).json({ 
+          message: "Failed to save any scenarios to database",
+          details: "All scenario creation attempts failed"
+        });
+      }
+
+      // Return the newly created scenario objects
+      res.status(201).json({
+        message: `Successfully generated ${createdScenarios.length} test scenarios`,
+        requirement: {
+          id: requirement.id,
+          title: requirement.title
+        },
+        scenarios: createdScenarios,
+        aiResponse: {
+          generatedCount: parsedResponse.scenarios.length,
+          savedCount: createdScenarios.length
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Error in generate-scenarios route:', error);
+      
+      // Handle specific error types
+      if (error.message && error.message.includes('DEEPSEEK_API_KEY')) {
+        return res.status(500).json({ 
+          message: "AI service configuration error",
+          details: "DeepSeek API key is not configured"
+        });
+      } else if (error.message && (error.message.includes('Network error') || error.message.includes('connection'))) {
+        return res.status(503).json({ 
+          message: "AI service temporarily unavailable",
+          details: "Unable to connect to DeepSeek API. Please try again later."
+        });
+      } else if (error.message && error.message.includes('Rate limit')) {
+        return res.status(429).json({ 
+          message: "AI service rate limit exceeded",
+          details: "Please wait before making another request"
+        });
+      } else {
+        return res.status(500).json({ 
+          message: "Failed to generate test scenarios",
+          details: error.message || 'Unknown error occurred'
+        });
+      }
     }
   });
 

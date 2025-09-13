@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// Using global fetch available in Node.js 18+
 
 /**
  * AI Service for DeepSeek API integration
@@ -45,60 +45,72 @@ async function generateWithAI(prompt) {
 
     console.log('🌐 Making request to DeepSeek API...');
 
-    // Make API request
-    const response = await fetch(DEEPSEEK_API_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'User-Agent': 'TestFlow-AI-Service/1.0'
-      },
-      body: JSON.stringify(requestBody),
-      timeout: 30000 // 30 second timeout
-    });
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-    console.log('📡 Response status:', response.status);
+    try {
+      // Make API request with AbortController
+      const response = await fetch(DEEPSEEK_API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'User-Agent': 'TestFlow-AI-Service/1.0'
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
 
-    // Check response status
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ API Error Response:', errorText);
-      
-      switch (response.status) {
-        case 401:
-          throw new Error('Invalid API key or authentication failed');
-        case 429:
-          throw new Error('Rate limit exceeded. Please try again later');
-        case 500:
-          throw new Error('DeepSeek API server error. Please try again later');
-        default:
-          throw new Error(`DeepSeek API error (${response.status}): ${errorText}`);
+      clearTimeout(timeoutId);
+
+      console.log('📡 Response status:', response.status);
+
+      // Check response status
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API Error Response:', errorText);
+        
+        switch (response.status) {
+          case 401:
+            throw new Error('Invalid API key or authentication failed');
+          case 429:
+            throw new Error('Rate limit exceeded. Please try again later');
+          case 500:
+            throw new Error('DeepSeek API server error. Please try again later');
+          default:
+            throw new Error(`DeepSeek API error (${response.status}): ${errorText}`);
+        }
       }
+
+      // Parse response
+      const data = await response.json();
+      console.log('✅ API response received');
+
+      // Validate response structure
+      if (!data || !data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+        console.error('❌ Invalid response structure:', data);
+        throw new Error('Invalid response format from DeepSeek API');
+      }
+
+      const choice = data.choices[0];
+      if (!choice.message || !choice.message.content) {
+        console.error('❌ Missing content in response:', choice);
+        throw new Error('No content found in API response');
+      }
+
+      const generatedText = choice.message.content.trim();
+      
+      console.log('🎉 AI generation completed successfully');
+      console.log('📊 Generated text length:', generatedText.length);
+      console.log('💰 Token usage:', data.usage || 'Not available');
+
+      return generatedText;
+
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      throw fetchError;
     }
-
-    // Parse response
-    const data = await response.json();
-    console.log('✅ API response received');
-
-    // Validate response structure
-    if (!data || !data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
-      console.error('❌ Invalid response structure:', data);
-      throw new Error('Invalid response format from DeepSeek API');
-    }
-
-    const choice = data.choices[0];
-    if (!choice.message || !choice.message.content) {
-      console.error('❌ Missing content in response:', choice);
-      throw new Error('No content found in API response');
-    }
-
-    const generatedText = choice.message.content.trim();
-    
-    console.log('🎉 AI generation completed successfully');
-    console.log('📊 Generated text length:', generatedText.length);
-    console.log('💰 Token usage:', data.usage || 'Not available');
-
-    return generatedText;
 
   } catch (error) {
     console.error('🚨 AI Service Error:', error.message);
@@ -146,7 +158,7 @@ function getServiceInfo() {
   };
 }
 
-module.exports = {
+export {
   generateWithAI,
   healthCheck,
   getServiceInfo
