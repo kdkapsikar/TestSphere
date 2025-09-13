@@ -3,6 +3,23 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTestSuiteSchema, insertTestCaseSchema, insertTestRunSchema } from "@shared/schema";
 import { z } from "zod";
+
+// AI Response Validation Schemas
+const aiScenarioSchema = z.object({
+  scenario_id: z.string().min(1, "Scenario ID is required").max(50, "Scenario ID too long"),
+  title: z.string().min(1, "Title is required").max(200, "Title too long"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  test_type: z.enum(["Functional", "Integration", "Regression", "Security", "Performance", "Usability", "API", "UI", "Database"], {
+    errorMap: () => ({ message: "Invalid test type" })
+  }),
+  priority: z.enum(["High", "Medium", "Low"], {
+    errorMap: () => ({ message: "Priority must be High, Medium, or Low" })
+  })
+});
+
+const aiResponseSchema = z.object({
+  scenarios: z.array(aiScenarioSchema).min(1, "At least one scenario is required").max(10, "Too many scenarios")
+});
 // @ts-ignore
 import { generateWithAI } from "../services/aiService.js";
 // @ts-ignore
@@ -389,66 +406,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Call AI service
       const aiResponse = await generateWithAI(prompt);
       
-      // Parse the JSON response
+      // Extract and parse JSON from AI response (handle code fences and extra text)
       let parsedResponse;
       try {
-        parsedResponse = JSON.parse(aiResponse);
+        // First try direct parsing
+        try {
+          parsedResponse = JSON.parse(aiResponse);
+        } catch (directParseError) {
+          console.log('Direct JSON parse failed, attempting extraction...');
+          
+          // Try to extract JSON from code fences or surrounding text
+          const jsonMatch = aiResponse.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/) || 
+                           aiResponse.match(/(\{[\s\S]*\})/);
+          
+          if (jsonMatch) {
+            parsedResponse = JSON.parse(jsonMatch[1]);
+          } else {
+            throw directParseError;
+          }
+        }
       } catch (parseError) {
         console.error('Failed to parse AI response:', parseError);
+        console.error('AI Response content:', aiResponse.substring(0, 500) + '...');
         return res.status(500).json({ 
           message: "AI service returned invalid JSON format",
-          details: "The AI response could not be parsed as valid JSON"
+          details: "The AI response could not be parsed as valid JSON. Please try again."
         });
       }
 
-      // Validate response structure
-      if (!parsedResponse.scenarios || !Array.isArray(parsedResponse.scenarios)) {
+      // Validate response structure with Zod
+      const validationResult = aiResponseSchema.safeParse(parsedResponse);
+      if (!validationResult.success) {
+        console.error('AI response validation failed:', validationResult.error);
         return res.status(500).json({ 
           message: "AI service returned invalid response format",
-          details: "Expected 'scenarios' array in response"
+          details: `Validation errors: ${validationResult.error.issues.map(i => i.message).join(', ')}`
         });
       }
 
-      // Save the new test scenarios to the database
+      const validatedResponse = validationResult.data;
+
+      // Save the new test scenarios to the database with detailed tracking
+      const scenarioResults = [];
       const createdScenarios = [];
-      for (const scenario of parsedResponse.scenarios) {
+      const errors = [];
+
+      for (const scenario of validatedResponse.scenarios) {
         try {
-          const newScenario = await storage.createTestScenario({
+          // Normalize data before database insertion
+          const scenarioData = {
             scenarioId: scenario.scenario_id,
-            title: scenario.title,
-            description: scenario.description,
+            title: scenario.title.trim(),
+            description: scenario.description.trim(),
             linkedRequirementId: requirementId,
-            module: requirement.module,
-            testType: scenario.test_type,
-            priority: scenario.priority,
+            module: requirement.module || 'General',
+            testType: scenario.test_type.toLowerCase(), // Normalize to lowercase
+            priority: scenario.priority.toLowerCase(), // Normalize to lowercase
             author: requirement.author,
             status: "draft"
-          });
+          };
+
+          const newScenario = await storage.createTestScenario(scenarioData);
           createdScenarios.push(newScenario);
+          scenarioResults.push({
+            scenario_id: scenario.scenario_id,
+            title: scenario.title,
+            status: 'created',
+            id: newScenario.id
+          });
         } catch (dbError) {
-          console.error('Failed to save scenario to database:', dbError);
-          // Continue with other scenarios even if one fails
+          console.error(`Failed to save scenario ${scenario.scenario_id}:`, dbError);
+          errors.push({
+            scenario_id: scenario.scenario_id,
+            title: scenario.title,
+            status: 'failed',
+            error: dbError.message || 'Database error'
+          });
+          scenarioResults.push({
+            scenario_id: scenario.scenario_id,
+            title: scenario.title,
+            status: 'failed',
+            error: dbError.message || 'Database error'
+          });
         }
       }
 
-      if (createdScenarios.length === 0) {
+      // Determine response status code based on results
+      const successCount = createdScenarios.length;
+      const totalCount = validatedResponse.scenarios.length;
+      
+      if (successCount === 0) {
         return res.status(500).json({ 
           message: "Failed to save any scenarios to database",
-          details: "All scenario creation attempts failed"
+          details: "All scenario creation attempts failed",
+          requirement: {
+            id: requirement.id,
+            title: requirement.title
+          },
+          results: scenarioResults,
+          summary: {
+            total: totalCount,
+            created: successCount,
+            failed: errors.length
+          }
         });
       }
 
-      // Return the newly created scenario objects
-      res.status(201).json({
-        message: `Successfully generated ${createdScenarios.length} test scenarios`,
+      // Return detailed results (207 Multi-Status if partial success, 201 if all succeeded)
+      const statusCode = successCount === totalCount ? 201 : 207;
+      res.status(statusCode).json({
+        message: successCount === totalCount ? 
+          `Successfully generated ${successCount} test scenarios` :
+          `Generated ${successCount} of ${totalCount} test scenarios`,
         requirement: {
           id: requirement.id,
           title: requirement.title
         },
         scenarios: createdScenarios,
-        aiResponse: {
-          generatedCount: parsedResponse.scenarios.length,
-          savedCount: createdScenarios.length
+        results: scenarioResults,
+        summary: {
+          total: totalCount,
+          created: successCount,
+          failed: errors.length
         }
       });
 
