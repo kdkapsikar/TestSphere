@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTestSuiteSchema, insertTestCaseSchema, insertTestRunSchema, insertTestExecutionSchema, insertDefectSchema, insertRequirementSchema } from "@shared/schema";
+import { insertTestSuiteSchema, insertTestCaseSchema, insertTestRunSchema, insertTestExecutionSchema, insertDefectSchema, insertRequirementSchema, insertTestScenarioSchema } from "@shared/schema";
 import { z } from "zod";
 
 // AI Response Validation Schemas
@@ -636,6 +636,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
           details: error.message || 'Unknown error occurred'
         });
       }
+    }
+  });
+
+  // Test Scenarios CRUD Operations
+  app.get("/api/test-scenarios", async (req, res) => {
+    try {
+      const scenarios = await storage.getTestScenarios();
+      res.json(scenarios);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch test scenarios" });
+    }
+  });
+
+  app.post("/api/test-scenarios", async (req, res) => {
+    try {
+      console.log('POST /api/test-scenarios - Request body:', JSON.stringify(req.body, null, 2));
+      const validatedData = insertTestScenarioSchema.parse(req.body);
+      console.log('POST /api/test-scenarios - Validation passed:', JSON.stringify(validatedData, null, 2));
+      const scenario = await storage.createTestScenario(validatedData);
+      console.log('POST /api/test-scenarios - Created scenario:', JSON.stringify(scenario, null, 2));
+      res.status(201).json(scenario);
+    } catch (error) {
+      console.error('POST /api/test-scenarios - Error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid test scenario data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create test scenario" });
+    }
+  });
+
+  app.put("/api/test-scenarios/:id", async (req, res) => {
+    try {
+      const validatedData = insertTestScenarioSchema.partial().parse(req.body);
+      const scenario = await storage.updateTestScenario(req.params.id, validatedData);
+      if (!scenario) {
+        return res.status(404).json({ message: "Test scenario not found" });
+      }
+      res.json(scenario);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid test scenario data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update test scenario" });
+    }
+  });
+
+  app.delete("/api/test-scenarios/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteTestScenario(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Test scenario not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete test scenario" });
     }
   });
 
