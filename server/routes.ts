@@ -20,9 +20,8 @@ const aiScenarioSchema = z.object({
 const aiResponseSchema = z.object({
   scenarios: z.array(aiScenarioSchema).min(1, "At least one scenario is required").max(10, "Too many scenarios")
 });
-// @ts-ignore
+// Import ES modules with proper TypeScript handling
 import { generateWithAI } from "../services/aiService.js";
-// @ts-ignore
 import { generateScenarioPrompt } from "../promptGenerators/generateScenarioPrompt.js";
 
 // Map to track running test execution timers for cancellation
