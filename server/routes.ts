@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTestSuiteSchema, insertTestCaseSchema, insertTestRunSchema, insertTestExecutionSchema, insertDefectSchema } from "@shared/schema";
+import { insertTestSuiteSchema, insertTestCaseSchema, insertTestRunSchema, insertTestExecutionSchema, insertDefectSchema, insertRequirementSchema } from "@shared/schema";
 import { z } from "zod";
 
 // AI Response Validation Schemas
@@ -415,6 +415,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Test execution stopped" });
     } catch (error) {
       res.status(500).json({ message: "Failed to stop test execution" });
+    }
+  });
+
+  // Requirements CRUD Operations
+  app.get("/api/requirements", async (req, res) => {
+    try {
+      const requirements = await storage.getRequirements();
+      res.json(requirements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch requirements" });
+    }
+  });
+
+  app.post("/api/requirements", async (req, res) => {
+    try {
+      const validatedData = insertRequirementSchema.parse(req.body);
+      const requirement = await storage.createRequirement(validatedData);
+      res.status(201).json(requirement);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid requirement data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create requirement" });
+    }
+  });
+
+  app.put("/api/requirements/:id", async (req, res) => {
+    try {
+      const validatedData = insertRequirementSchema.partial().parse(req.body);
+      const requirement = await storage.updateRequirement(req.params.id, validatedData);
+      if (!requirement) {
+        return res.status(404).json({ message: "Requirement not found" });
+      }
+      res.json(requirement);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid requirement data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update requirement" });
+    }
+  });
+
+  app.delete("/api/requirements/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteRequirement(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Requirement not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete requirement" });
     }
   });
 

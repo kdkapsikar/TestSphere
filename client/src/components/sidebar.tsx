@@ -5,11 +5,13 @@ import {
   FileText, 
   Archive, 
   Zap, 
-  BarChart3
+  BarChart3,
+  ClipboardList
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Requirements", href: "/requirements", icon: ClipboardList },
   { name: "Test Cases", href: "/test-cases", icon: FileText },
   { name: "Test Suites", href: "/test-suites", icon: Archive },
   { name: "Test Runs", href: "/test-runs", icon: Zap },
