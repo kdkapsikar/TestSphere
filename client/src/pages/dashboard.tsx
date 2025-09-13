@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, ClipboardList, TestTube2, FileText } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import MobileHeader from "@/components/mobile-header";
 import DashboardStats from "@/components/dashboard-stats";
@@ -8,9 +8,11 @@ import TestSuitesOverview from "@/components/test-suites-overview";
 import TestCasesTable from "@/components/test-cases-table";
 import TestCaseModal from "@/components/test-case-modal";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   return (
     <div className="min-h-screen flex">
@@ -25,14 +27,30 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
               <p className="text-muted-foreground">Overview of your test management activities</p>
             </div>
-            <div className="mt-4 sm:mt-0 flex space-x-3">
+            <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setLocation("/requirements")} 
+                data-testid="button-new-requirement"
+              >
+                <ClipboardList className="w-4 h-4 mr-2" />
+                New Requirement
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setLocation("/test-scenarios")} 
+                data-testid="button-new-scenario"
+              >
+                <TestTube2 className="w-4 h-4 mr-2" />
+                New Scenario
+              </Button>
+              <Button onClick={() => setIsModalOpen(true)} data-testid="button-new-test-case">
+                <FileText className="w-4 h-4 mr-2" />
+                New Test Case
+              </Button>
               <Button variant="secondary" data-testid="button-export-report">
                 <Download className="w-4 h-4 mr-2" />
                 Export Report
-              </Button>
-              <Button onClick={() => setIsModalOpen(true)} data-testid="button-new-test-case">
-                <Plus className="w-4 h-4 mr-2" />
-                New Test Case
               </Button>
             </div>
           </div>
