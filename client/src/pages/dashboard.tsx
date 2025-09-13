@@ -1,17 +1,13 @@
-import { useState } from "react";
 import { Plus, Download, ClipboardList, TestTube2, FileText } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import MobileHeader from "@/components/mobile-header";
 import DashboardStats from "@/components/dashboard-stats";
 import RecentActivity from "@/components/recent-activity";
 import TestSuitesOverview from "@/components/test-suites-overview";
-import TestCasesTable from "@/components/test-cases-table";
-import TestCaseModal from "@/components/test-case-modal";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 
 export default function Dashboard() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [, setLocation] = useLocation();
 
   return (
@@ -44,7 +40,7 @@ export default function Dashboard() {
                 <TestTube2 className="w-4 h-4 mr-2" />
                 New Scenario
               </Button>
-              <Button onClick={() => setIsModalOpen(true)} data-testid="button-new-test-case">
+              <Button onClick={() => setLocation("/test-cases")} data-testid="button-new-test-case">
                 <FileText className="w-4 h-4 mr-2" />
                 New Test Case
               </Button>
@@ -59,16 +55,13 @@ export default function Dashboard() {
         <div className="p-6">
           <DashboardStats />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <RecentActivity />
             <TestSuitesOverview />
           </div>
-
-          <TestCasesTable />
         </div>
       </main>
 
-      <TestCaseModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }
