@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2, FileText, AlertCircle, Clock, User, Flag, Code, CheckCircle, XCircle, AlertTriangle, Minus } from "lucide-react";
+import { Plus, Edit, Trash2, FileText, AlertCircle, Clock, User, Flag, Code, CheckCircle, XCircle, AlertTriangle, Minus, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,8 +20,15 @@ import { apiRequest } from "@/lib/queryClient";
 import type { TestCase, TestScenario } from "@shared/schema";
 import { insertTestCaseSchema } from "@shared/schema";
 
+const testStepSchema = z.object({
+  testStep: z.string(),
+  testData: z.string(),
+  expectedResult: z.string(),
+  actualResult: z.string(),
+});
+
 const formSchema = insertTestCaseSchema.extend({
-  testSteps: z.string().optional(), // Handle as string in form, convert to JSON in submission
+  testSteps: z.array(testStepSchema).optional(),
 });
 
 export default function TestCases() {
@@ -36,7 +44,7 @@ export default function TestCases() {
       title: "",
       linkedScenarioId: "",
       preconditions: "",
-      testSteps: "",
+      testSteps: [],
       testData: "",
       expectedResult: "",
       actualResult: "",
@@ -62,12 +70,7 @@ export default function TestCases() {
 
   const createTestCaseMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
-      // Convert testSteps string to JSON array if provided
-      const processedData = {
-        ...data,
-        testSteps: data.testSteps ? [{ step: 1, action: data.testSteps }] : null,
-      };
-      const response = await apiRequest("POST", "/api/test-cases", processedData);
+      const response = await apiRequest("POST", "/api/test-cases", data);
       return response.json();
     },
     onSuccess: () => {
@@ -90,11 +93,7 @@ export default function TestCases() {
 
   const updateTestCaseMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof formSchema> }) => {
-      const processedData = {
-        ...data,
-        testSteps: data.testSteps ? [{ step: 1, action: data.testSteps }] : null,
-      };
-      const response = await apiRequest("PUT", `/api/test-cases/${id}`, processedData);
+      const response = await apiRequest("PUT", `/api/test-cases/${id}`, data);
       return response.json();
     },
     onSuccess: () => {
@@ -151,9 +150,7 @@ export default function TestCases() {
       title: testCase.title || "",
       linkedScenarioId: testCase.linkedScenarioId || "",
       preconditions: testCase.preconditions || "",
-      testSteps: Array.isArray(testCase.testSteps) && testCase.testSteps.length > 0 
-        ? testCase.testSteps[0]?.action || "" 
-        : "",
+      testSteps: Array.isArray(testCase.testSteps) ? testCase.testSteps : [],
       testData: testCase.testData || "",
       expectedResult: testCase.expectedResult || "",
       actualResult: testCase.actualResult || "",
@@ -362,14 +359,114 @@ export default function TestCases() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Test Steps</FormLabel>
-                              <FormControl>
-                                <Textarea 
-                                  placeholder="Detailed, sequential actions to perform"
-                                  {...field}
-                                  value={field.value || ""}
-                                  data-testid="input-test-steps"
-                                />
-                              </FormControl>
+                              <div className="space-y-4">
+                                  <div className="border rounded-lg">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead className="w-20">Step#</TableHead>
+                                          <TableHead>Test Step</TableHead>
+                                          <TableHead>Test Data</TableHead>
+                                          <TableHead>Expected Result</TableHead>
+                                          <TableHead>Actual Result</TableHead>
+                                          <TableHead className="w-16">Actions</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {field.value && field.value.length > 0 ? (
+                                          field.value.map((step, index) => (
+                                            <TableRow key={index}>
+                                              <TableCell className="font-medium">
+                                                Step {index + 1}
+                                              </TableCell>
+                                              <TableCell>
+                                                <Input
+                                                  placeholder="Enter test step"
+                                                  value={step.testStep}
+                                                  onChange={(e) => {
+                                                    const newSteps = [...(field.value || [])];
+                                                    newSteps[index] = { ...step, testStep: e.target.value };
+                                                    field.onChange(newSteps);
+                                                  }}
+                                                  data-testid={`input-test-step-${index}`}
+                                                />
+                                              </TableCell>
+                                              <TableCell>
+                                                <Input
+                                                  placeholder="Enter test data"
+                                                  value={step.testData}
+                                                  onChange={(e) => {
+                                                    const newSteps = [...(field.value || [])];
+                                                    newSteps[index] = { ...step, testData: e.target.value };
+                                                    field.onChange(newSteps);
+                                                  }}
+                                                  data-testid={`input-test-data-${index}`}
+                                                />
+                                              </TableCell>
+                                              <TableCell>
+                                                <Input
+                                                  placeholder="Enter expected result"
+                                                  value={step.expectedResult}
+                                                  onChange={(e) => {
+                                                    const newSteps = [...(field.value || [])];
+                                                    newSteps[index] = { ...step, expectedResult: e.target.value };
+                                                    field.onChange(newSteps);
+                                                  }}
+                                                  data-testid={`input-expected-result-${index}`}
+                                                />
+                                              </TableCell>
+                                              <TableCell>
+                                                <Input
+                                                  placeholder="Enter actual result"
+                                                  value={step.actualResult}
+                                                  onChange={(e) => {
+                                                    const newSteps = [...(field.value || [])];
+                                                    newSteps[index] = { ...step, actualResult: e.target.value };
+                                                    field.onChange(newSteps);
+                                                  }}
+                                                  data-testid={`input-actual-result-${index}`}
+                                                />
+                                              </TableCell>
+                                              <TableCell>
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => {
+                                                    const newSteps = field.value?.filter((_, i) => i !== index) || [];
+                                                    field.onChange(newSteps);
+                                                  }}
+                                                  data-testid={`button-delete-step-${index}`}
+                                                >
+                                                  <X className="w-4 h-4" />
+                                                </Button>
+                                              </TableCell>
+                                            </TableRow>
+                                          ))
+                                        ) : (
+                                          <TableRow>
+                                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                                              No test steps added yet. Click "Add Test Step" to begin.
+                                            </TableCell>
+                                          </TableRow>
+                                        )}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const newStep = { testStep: "", testData: "", expectedResult: "", actualResult: "" };
+                                      const currentSteps = field.value || [];
+                                      field.onChange([...currentSteps, newStep]);
+                                    }}
+                                    data-testid="button-add-test-step"
+                                  >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Add Test Step
+                                  </Button>
+                                </div>
                               <FormMessage />
                             </FormItem>
                           )}
