@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, TestTube2, Edit, Trash2, FileText, Link, User, AlertCircle } from "lucide-react";
+import Sidebar from "@/components/sidebar";
+import MobileHeader from "@/components/mobile-header";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -164,23 +166,26 @@ export default function TestScenarios() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Test Scenarios</h1>
-            <p className="text-muted-foreground mt-2">
-              Manage and organize your test scenarios to ensure comprehensive test coverage
-            </p>
-          </div>
-          
-          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setEditingScenario(null)} data-testid="button-create-scenario">
-                <Plus className="w-4 h-4 mr-2" />
-                Create Test Scenario
-              </Button>
-            </DialogTrigger>
+    <div className="min-h-screen flex bg-background">
+      <Sidebar />
+      
+      <main className="flex-1 flex flex-col">
+        <MobileHeader />
+        
+        <div className="bg-card border-b border-border px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">Test Scenarios</h2>
+              <p className="text-muted-foreground">Manage and organize your test scenarios to ensure comprehensive test coverage</p>
+            </div>
+            <div className="mt-4 sm:mt-0">
+              <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => setEditingScenario(null)} data-testid="button-create-scenario">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Test Scenario
+                  </Button>
+                </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>
@@ -417,9 +422,11 @@ export default function TestScenarios() {
               </Form>
             </DialogContent>
           </Dialog>
+            </div>
+          </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 overflow-auto">
           {isError ? (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
@@ -554,7 +561,7 @@ export default function TestScenarios() {
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

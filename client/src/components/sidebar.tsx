@@ -24,7 +24,7 @@ export default function Sidebar() {
   const [location] = useLocation();
 
   return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col lg:flex hidden">
+    <aside className="w-64 bg-card border-r border-border flex flex-col hidden lg:flex">
       <div className="p-6 border-b border-border">
         <h1 className="text-xl font-bold text-primary" data-testid="app-title">TestFlow</h1>
         <p className="text-sm text-muted-foreground">Test Management Platform</p>
@@ -36,16 +36,14 @@ export default function Sidebar() {
           const Icon = item.icon;
           
           return (
-            <Link key={item.name} href={item.href}>
-              <a className={cn(
-                "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
-                isActive
-                  ? "bg-accent text-accent-foreground font-medium"
-                  : "hover:bg-accent hover:text-accent-foreground"
-              )} data-testid={`nav-${item.name.toLowerCase().replace(' ', '-')}`}>
-                <Icon className="w-5 h-5" />
-                <span>{item.name}</span>
-              </a>
+            <Link key={item.name} href={item.href} className={cn(
+              "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
+              isActive
+                ? "bg-accent text-accent-foreground font-medium"
+                : "hover:bg-accent hover:text-accent-foreground"
+            )} data-testid={`nav-${item.name.toLowerCase().replace(' ', '-')}`}>
+              <Icon className="w-5 h-5" />
+              <span>{item.name}</span>
             </Link>
           );
         })}

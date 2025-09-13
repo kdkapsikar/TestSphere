@@ -651,14 +651,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/test-scenarios", async (req, res) => {
     try {
-      console.log('POST /api/test-scenarios - Request body:', JSON.stringify(req.body, null, 2));
       const validatedData = insertTestScenarioSchema.parse(req.body);
-      console.log('POST /api/test-scenarios - Validation passed:', JSON.stringify(validatedData, null, 2));
       const scenario = await storage.createTestScenario(validatedData);
-      console.log('POST /api/test-scenarios - Created scenario:', JSON.stringify(scenario, null, 2));
       res.status(201).json(scenario);
     } catch (error) {
-      console.error('POST /api/test-scenarios - Error:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid test scenario data", errors: error.errors });
       }
