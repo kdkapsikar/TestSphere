@@ -49,11 +49,17 @@ export const testCases = pgTable("test_cases", {
   testSteps: jsonb("test_steps"), // Array of step objects
   testData: text("test_data"),
   expectedResult: text("expected_result"),
+  actualResult: text("actual_result"), // To be filled during execution
+  executionStatus: text("execution_status").notNull().default("not_executed"), // pass, fail, blocked, not_executed
   priority: text("priority").notNull().default("medium"), // high, medium, low
   module: text("module"),
-  testType: text("test_type"), // manual, automated, semi-automated
+  testType: text("test_type"), // positive, negative, boundary_value, smoke
+  postConditions: text("post_conditions"), // State of system after test runs
   author: text("author"), // nullable for migration compatibility
-  automationStatus: text("automation_status").notNull().default("not_automated"), // automated, not_automated, in_progress
+  dateCreated: timestamp("date_created").defaultNow(),
+  automationStatus: text("automation_status").notNull().default("manual"), // manual, automated, to_be_automated
+  automationScriptId: text("automation_script_id"), // Link to automated test script
+  comments: text("comments"), // Additional notes
   // Legacy fields for backward compatibility
   name: text("name"),
   description: text("description"),
@@ -69,6 +75,7 @@ export const testCases = pgTable("test_cases", {
   moduleIdx: index("test_cases_module_idx").on(table.module),
   priorityIdx: index("test_cases_priority_idx").on(table.priority),
   automationStatusIdx: index("test_cases_automation_status_idx").on(table.automationStatus),
+  executionStatusIdx: index("test_cases_execution_status_idx").on(table.executionStatus),
 }));
 
 // Test Suites Table (Preserved for backward compatibility)
@@ -169,6 +176,7 @@ export const insertTestCaseSchema = createInsertSchema(testCases).omit({
   updatedAt: true,
   lastRun: true,
   duration: true,
+  dateCreated: true,
 });
 
 export const insertTestSuiteSchema = createInsertSchema(testSuites).omit({
