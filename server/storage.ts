@@ -112,6 +112,8 @@ export class MemStorage implements IStorage {
   private testSuites: Map<string, TestSuite>;
   private testCases: Map<string, TestCase>;
   private testRuns: Map<string, TestRun>;
+  private testExecutions: Map<string, TestExecution>;
+  private defects: Map<string, Defect>;
   private activity: Array<{
     id: string;
     type: 'test_passed' | 'test_failed' | 'test_created' | 'test_started';
@@ -650,6 +652,55 @@ export class MemStorage implements IStorage {
 
   async deleteDefect(id: string): Promise<boolean> {
     return this.defects.delete(id);
+  }
+
+  async getTestCasesByScenario(scenarioId: string): Promise<TestCase[]> {
+    return Array.from(this.testCases.values())
+      .filter(tc => tc.linkedScenarioId === scenarioId)
+      .sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
+  }
+
+  async getTestExecution(id: string): Promise<TestExecution | undefined> {
+    return this.testExecutions.get(id);
+  }
+
+  async getTestExecutions(): Promise<TestExecution[]> {
+    return Array.from(this.testExecutions.values());
+  }
+
+  async getTestExecutionsByRun(testRunId: string): Promise<TestExecution[]> {
+    return Array.from(this.testExecutions.values())
+      .filter(execution => execution.testRunId === testRunId);
+  }
+
+  async createTestExecution(execution: InsertTestExecution): Promise<TestExecution> {
+    const id = randomUUID();
+    const newExecution: TestExecution = {
+      ...execution,
+      id,
+      actualResult: execution.actualResult || null,
+      executionStatus: execution.executionStatus || "not_executed",
+      executedAt: execution.executedAt || null,
+      evidenceUrl: execution.evidenceUrl || null
+    };
+    this.testExecutions.set(id, newExecution);
+    return newExecution;
+  }
+
+  async updateTestExecution(id: string, execution: Partial<InsertTestExecution>): Promise<TestExecution | undefined> {
+    const existing = this.testExecutions.get(id);
+    if (!existing) return undefined;
+
+    const updated: TestExecution = {
+      ...existing,
+      ...execution
+    };
+    this.testExecutions.set(id, updated);
+    return updated;
+  }
+
+  async deleteTestExecution(id: string): Promise<boolean> {
+    return this.testExecutions.delete(id);
   }
 
   // Recent Activity

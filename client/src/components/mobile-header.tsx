@@ -10,7 +10,8 @@ import {
   Archive, 
   Zap, 
   BarChart3,
-  ClipboardList
+  ClipboardList,
+  Bug
 } from "lucide-react";
 
 const navigation = [
@@ -20,6 +21,7 @@ const navigation = [
   { name: "Test Cases", href: "/test-cases", icon: FileText },
   { name: "Test Suites", href: "/test-suites", icon: Archive },
   { name: "Test Runs", href: "/test-runs", icon: Zap },
+  { name: "Defects", href: "/defects", icon: Bug },
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ];
 

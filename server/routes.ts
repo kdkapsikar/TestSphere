@@ -469,6 +469,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Defects Routes
+  app.get("/api/defects", async (req, res) => {
+    try {
+      const defects = await storage.getDefects();
+      res.json(defects);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch defects" });
+    }
+  });
+
+  app.get("/api/defects/stats", async (req, res) => {
+    try {
+      const defects = await storage.getDefects();
+      const stats = {
+        totalDefects: defects.length,
+        newDefects: defects.filter(d => d.status === 'new').length,
+        assignedDefects: defects.filter(d => d.status === 'assigned').length,
+        resolvedDefects: defects.filter(d => d.status === 'resolved').length,
+      };
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch defect stats" });
+    }
+  });
+
+  app.post("/api/defects", async (req, res) => {
+    try {
+      const validatedData = insertDefectSchema.parse(req.body);
+      const defect = await storage.createDefect(validatedData);
+      res.status(201).json(defect);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid defect data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create defect" });
+    }
+  });
+
+  app.put("/api/defects/:id", async (req, res) => {
+    try {
+      const validatedData = insertDefectSchema.partial().parse(req.body);
+      const defect = await storage.updateDefect(req.params.id, validatedData);
+      if (!defect) {
+        return res.status(404).json({ message: "Defect not found" });
+      }
+      res.json(defect);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid defect data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update defect" });
+    }
+  });
+
+  app.delete("/api/defects/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteDefect(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Defect not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete defect" });
+    }
+  });
+
+  app.get("/api/requirements/stats", async (req, res) => {
+    try {
+      const requirements = await storage.getRequirements();
+      const stats = {
+        totalRequirements: requirements.length,
+        highPriority: requirements.filter(r => r.priority === 'high').length,
+        mediumPriority: requirements.filter(r => r.priority === 'medium').length,
+        lowPriority: requirements.filter(r => r.priority === 'low').length,
+      };
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch requirement stats" });
+    }
+  });
+
+  app.get("/api/test-scenarios/stats", async (req, res) => {
+    try {
+      const scenarios = await storage.getTestScenarios();
+      const stats = {
+        totalScenarios: scenarios.length,
+        draftScenarios: scenarios.filter(s => s.status === 'draft').length,
+        reviewedScenarios: scenarios.filter(s => s.status === 'reviewed').length,
+        approvedScenarios: scenarios.filter(s => s.status === 'approved').length,
+      };
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch scenario stats" });
+    }
+  });
+
   // Requirements AI Generation Route
   app.post("/api/requirements/:reqId/generate-scenarios", async (req, res) => {
     try {

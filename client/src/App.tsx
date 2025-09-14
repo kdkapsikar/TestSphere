@@ -11,6 +11,7 @@ import TestCases from "./pages/test-cases";
 import TestSuites from "./pages/test-suites";
 import TestRuns from "./pages/test-runs";
 import Reports from "./pages/reports";
+import Defects from "./pages/defects";
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/test-suites" component={TestSuites} />
       <Route path="/test-runs" component={TestRuns} />
       <Route path="/reports" component={Reports} />
+      <Route path="/defects" component={Defects} />
       <Route component={NotFound} />
     </Switch>
   );
