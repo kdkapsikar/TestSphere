@@ -1,14 +1,18 @@
 import { Plus, Download, ClipboardList, TestTube2, FileText } from "lucide-react";
+import { Bug } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import MobileHeader from "@/components/mobile-header";
 import DashboardStats from "@/components/dashboard-stats";
 import RecentActivity from "@/components/recent-activity";
-import TestSuitesOverview from "@/components/test-suites-overview";
+import DefectForm from "@/components/defect-form";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
+import { useState } from "react";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
+  const [isDefectFormOpen, setIsDefectFormOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex">
@@ -52,6 +56,14 @@ export default function Dashboard() {
                 <Download className="w-4 h-4 mr-2" />
                 Export Report
               </Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => setIsDefectFormOpen(true)} 
+                data-testid="button-report-defect"
+              >
+                <Bug className="w-4 h-4 mr-2" />
+                Report Defect
+              </Button>
             </div>
           </div>
         </div>
@@ -59,11 +71,15 @@ export default function Dashboard() {
         <div className="p-6">
           <DashboardStats />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             <RecentActivity />
-            <TestSuitesOverview />
           </div>
         </div>
+
+        <DefectForm 
+          isOpen={isDefectFormOpen} 
+          onClose={() => setIsDefectFormOpen(false)} 
+        />
       </main>
 
     </div>
