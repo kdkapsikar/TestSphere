@@ -281,34 +281,6 @@ export default function Defects() {
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="attachments"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Attachments</FormLabel>
-                            <FormControl>
-                              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                                <div className="text-muted-foreground">
-                                  <p className="text-sm">Drag and drop files here, or click to browse</p>
-                                  <p className="text-xs mt-1">Supported formats: PNG, JPG, PDF, TXT (Max 10MB)</p>
-                                </div>
-                                <Input
-                                  type="file"
-                                  multiple
-                                  accept=".png,.jpg,.jpeg,.pdf,.txt"
-                                  className="hidden"
-                                  data-testid="input-defect-attachments"
-                                />
-                                <Button type="button" variant="outline" className="mt-2" size="sm">
-                                  Choose Files
-                                </Button>
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField

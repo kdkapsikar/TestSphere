@@ -654,55 +654,6 @@ export class MemStorage implements IStorage {
     return this.defects.delete(id);
   }
 
-  async getTestCasesByScenario(scenarioId: string): Promise<TestCase[]> {
-    return Array.from(this.testCases.values())
-      .filter(tc => tc.linkedScenarioId === scenarioId)
-      .sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
-  }
-
-  async getTestExecution(id: string): Promise<TestExecution | undefined> {
-    return this.testExecutions.get(id);
-  }
-
-  async getTestExecutions(): Promise<TestExecution[]> {
-    return Array.from(this.testExecutions.values());
-  }
-
-  async getTestExecutionsByRun(testRunId: string): Promise<TestExecution[]> {
-    return Array.from(this.testExecutions.values())
-      .filter(execution => execution.testRunId === testRunId);
-  }
-
-  async createTestExecution(execution: InsertTestExecution): Promise<TestExecution> {
-    const id = randomUUID();
-    const newExecution: TestExecution = {
-      ...execution,
-      id,
-      actualResult: execution.actualResult || null,
-      executionStatus: execution.executionStatus || "not_executed",
-      executedAt: execution.executedAt || null,
-      evidenceUrl: execution.evidenceUrl || null
-    };
-    this.testExecutions.set(id, newExecution);
-    return newExecution;
-  }
-
-  async updateTestExecution(id: string, execution: Partial<InsertTestExecution>): Promise<TestExecution | undefined> {
-    const existing = this.testExecutions.get(id);
-    if (!existing) return undefined;
-
-    const updated: TestExecution = {
-      ...existing,
-      ...execution
-    };
-    this.testExecutions.set(id, updated);
-    return updated;
-  }
-
-  async deleteTestExecution(id: string): Promise<boolean> {
-    return this.testExecutions.delete(id);
-  }
-
   // Recent Activity
   async getRecentActivity(): Promise<Array<{
     id: string;
@@ -924,6 +875,12 @@ export class DbStorage implements IStorage {
       .orderBy(desc(testCases.createdAt));
   }
 
+  async getTestCasesByScenario(scenarioId: string): Promise<TestCase[]> {
+    return await this.db.select().from(testCases)
+      .where(eq(testCases.linkedScenarioId, scenarioId))
+      .orderBy(desc(testCases.createdAt));
+  }
+
   async createTestCase(testCase: InsertTestCase): Promise<TestCase> {
     const result = await this.db.insert(testCases).values({
       ...testCase,
@@ -1086,6 +1043,103 @@ export class DbStorage implements IStorage {
 
   async deleteTestScenario(id: string): Promise<boolean> {
     const result = await this.db.delete(testScenarios).where(eq(testScenarios.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Test Executions
+  async getTestExecution(id: string): Promise<TestExecution | undefined> {
+    const result = await this.db.select().from(testExecutions).where(eq(testExecutions.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getTestExecutions(): Promise<TestExecution[]> {
+    return await this.db.select().from(testExecutions);
+  }
+
+  async getTestExecutionsByRun(testRunId: string): Promise<TestExecution[]> {
+    return await this.db.select().from(testExecutions)
+      .where(eq(testExecutions.testRunId, testRunId));
+  }
+
+  async createTestExecution(execution: InsertTestExecution): Promise<TestExecution> {
+    const result = await this.db.insert(testExecutions).values({
+      ...execution,
+      actualResult: execution.actualResult || null,
+      executionStatus: execution.executionStatus || "not_executed",
+      executedAt: execution.executedAt || null,
+      evidenceUrl: execution.evidenceUrl || null
+    }).returning();
+    return result[0];
+  }
+
+  async updateTestExecution(id: string, execution: Partial<InsertTestExecution>): Promise<TestExecution | undefined> {
+    const result = await this.db.update(testExecutions)
+      .set(execution)
+      .where(eq(testExecutions.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTestExecution(id: string): Promise<boolean> {
+    const result = await this.db.delete(testExecutions).where(eq(testExecutions.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Defects
+  async getDefect(id: string): Promise<Defect | undefined> {
+    const result = await this.db.select().from(defects).where(eq(defects.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getDefects(): Promise<Defect[]> {
+    return await this.db.select().from(defects).orderBy(desc(defects.dateReported));
+  }
+
+  async getDefectsByStatus(status: string): Promise<Defect[]> {
+    return await this.db.select().from(defects)
+      .where(eq(defects.status, status))
+      .orderBy(desc(defects.dateReported));
+  }
+
+  async getDefectsByAssignee(assignedTo: string): Promise<Defect[]> {
+    return await this.db.select().from(defects)
+      .where(eq(defects.assignedTo, assignedTo))
+      .orderBy(desc(defects.dateReported));
+  }
+
+  async createDefect(defect: InsertDefect): Promise<Defect> {
+    const result = await this.db.insert(defects).values({
+      ...defect,
+      defectId: defect.defectId || null,
+      description: defect.description || null,
+      stepsToReproduce: defect.stepsToReproduce || null,
+      expectedResult: defect.expectedResult || null,
+      actualResult: defect.actualResult || null,
+      severity: defect.severity || "medium",
+      priority: defect.priority || "medium",
+      status: defect.status || "new",
+      module: defect.module || null,
+      environment: defect.environment || null,
+      assignedTo: defect.assignedTo || null,
+      linkedTestCaseId: defect.linkedTestCaseId || null,
+      linkedRequirementId: defect.linkedRequirementId || null,
+      foundInVersion: defect.foundInVersion || null,
+      fixedInVersion: defect.fixedInVersion || null,
+      resolutionType: defect.resolutionType || null
+    }).returning();
+    return result[0];
+  }
+
+  async updateDefect(id: string, defect: Partial<InsertDefect>): Promise<Defect | undefined> {
+    const result = await this.db.update(defects)
+      .set(defect)
+      .where(eq(defects.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteDefect(id: string): Promise<boolean> {
+    const result = await this.db.delete(defects).where(eq(defects.id, id));
     return result.rowCount > 0;
   }
 

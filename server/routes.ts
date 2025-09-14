@@ -658,7 +658,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             scenario_id: scenario.scenario_id,
             title: scenario.title,
             error: errorMessage
-            error: errorMessage
           });
           scenarioResults.push({
             scenario_id: scenario.scenario_id,
