@@ -208,13 +208,15 @@ export default function Requirements() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Description</FormLabel>
-                            <RichTextEditor
-                              content={field.value || ""}
-                              onChange={field.onChange}
-                              placeholder="Describe the requirement in detail..."
-                              data-testid="rich-text-editor-description"
-                              className="min-h-[150px]"
-                            />
+                            <FormControl>
+                              <Textarea 
+                                rows={4} 
+                                placeholder="Describe the requirement in detail..." 
+                                {...field}
+                                value={field.value || ""}
+                                data-testid="textarea-requirement-description"
+                              />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}

@@ -270,13 +270,15 @@ export default function Defects() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Description</FormLabel>
-                              <RichTextEditor
-                                content={field.value || ""}
-                                onChange={field.onChange}
-                                placeholder="Detailed description of the defect..."
-                                data-testid="rich-text-editor-defect-description"
-                                className="min-h-[150px]"
-                              />
+                              <FormControl>
+                                <Textarea 
+                                  rows={4} 
+                                  placeholder="Detailed description of the defect..." 
+                                  {...field}
+                                  value={field.value || ""}
+                                  data-testid="textarea-defect-description"
+                                />
+                              </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}

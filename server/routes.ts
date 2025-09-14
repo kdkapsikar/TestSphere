@@ -903,14 +903,14 @@ app.post('/api/scenarios/:scenarioId/generate-test-cases', async (req, res) => {
         testCaseResults.push({
           title: testCase.title,
           status: 'failed',
-          error: dbError.message || 'Database error'
+          error: dbError instanceof Error ? dbError.message : 'Database error'
         });
       }
     }
 
     // Determine response status code based on results
     const successCount = createdTestCases.length;
-    const totalCount = parsedResponse.test_cases.length;
+          error: dbError instanceof Error ? dbError.message : 'Database error'
     
     if (successCount === 0) {
       return res.status(500).json({ 
