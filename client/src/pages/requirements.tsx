@@ -182,7 +182,8 @@ export default function Requirements() {
                     <DialogTitle>{editingRequirement ? "Edit Requirement" : "Create New Requirement"}</DialogTitle>
                   </DialogHeader>
                   
-                  <Form {...form}>
+                  <div className="max-h-[70vh] overflow-y-auto pr-2">
+                    <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                       <FormField
                         control={form.control}
@@ -213,6 +214,7 @@ export default function Requirements() {
                               onChange={field.onChange}
                               placeholder="Describe the requirement in detail..."
                               data-testid="rich-text-editor-description"
+                              className="min-h-[200px]"
                             />
                             <FormMessage />
                           </FormItem>
@@ -301,7 +303,8 @@ export default function Requirements() {
                         </Button>
                       </div>
                     </form>
-                  </Form>
+                    </Form>
+                  </div>
                 </DialogContent>
               </Dialog>
             </div>

@@ -243,7 +243,8 @@ export default function Defects() {
                     <DialogTitle>{editingDefect ? "Edit Defect" : "Report New Defect"}</DialogTitle>
                   </DialogHeader>
                   
-                  <Form {...form}>
+                  <div className="max-h-[75vh] overflow-y-auto pr-2">
+                    <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                       <FormField
                         control={form.control}
@@ -274,6 +275,7 @@ export default function Defects() {
                               onChange={field.onChange}
                               placeholder="Detailed description of the defect..."
                               data-testid="rich-text-editor-defect-description"
+                              className="min-h-[200px]"
                             />
                             <FormMessage />
                           </FormItem>
@@ -684,7 +686,8 @@ export default function Defects() {
                         </Button>
                       </div>
                     </form>
-                  </Form>
+                    </Form>
+                  </div>
                 </DialogContent>
               </Dialog>
             </div>

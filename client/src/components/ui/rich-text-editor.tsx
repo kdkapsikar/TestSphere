@@ -55,7 +55,7 @@ export function RichTextEditor({ content, onChange, placeholder = "Enter text...
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[120px] p-3',
+        class: 'prose prose-sm max-w-none focus:outline-none p-3',
       },
     },
   });
@@ -327,7 +327,7 @@ export function RichTextEditor({ content, onChange, placeholder = "Enter text...
       {/* Editor Content */}
       <EditorContent 
         editor={editor} 
-        className="min-h-[120px] max-h-[400px] overflow-y-auto [&_.ProseMirror]:outline-none [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:table-auto [&_.ProseMirror_table]:w-full [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-muted [&_.ProseMirror_th]:font-semibold"
+        className="min-h-[120px] max-h-[300px] overflow-y-auto [&_.ProseMirror]:outline-none [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:table-auto [&_.ProseMirror_table]:w-full [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-muted [&_.ProseMirror_th]:font-semibold"
       />
     </div>
   );
