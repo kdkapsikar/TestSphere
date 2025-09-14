@@ -35,7 +35,7 @@ REQUIREMENT DETAILS:
 
 INSTRUCTIONS:
 1. Act as a senior QA analyst and think critically about all possible testing angles
-2. Generate between 3 and 5 test scenarios that cover different aspects of this requirement
+2. Generate test scenarios that cover different aspects of this requirement
 3. Each scenario should test a specific behavior or edge case
 4. Include both positive and negative test scenarios where applicable
 5. Consider functional, boundary, error handling, and integration testing aspects
