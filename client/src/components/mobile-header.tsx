@@ -6,21 +6,6 @@ import { Button } from "@/components/ui/button";
 import { 
   LayoutDashboard, 
   FileText, 
-  Archive, 
-  Zap, 
-  BarChart3
-} from "lucide-react";
-
-const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Test Cases", href: "/test-cases", icon: FileText },
-  { name: "Test Suites", href: "/test-suites", icon: Archive },
-  { name: "Test Runs", href: "/test-runs", icon: Zap },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
-];
-import { 
-  LayoutDashboard, 
-  FileText, 
   TestTube2,
   Archive, 
   Zap, 
