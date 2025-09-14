@@ -201,6 +201,8 @@ export const insertTestExecutionSchema = createInsertSchema(testExecutions).omit
 export const insertDefectSchema = createInsertSchema(defects).omit({
   id: true,
   dateReported: true,
+}).extend({
+  linkedScenarioId: z.string().optional(),
 });
 
 // Types

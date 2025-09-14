@@ -16,8 +16,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Defect, TestCase, Requirement } from "@shared/schema";
+import type { Defect, TestCase, Requirement, TestScenario } from "@shared/schema";
 import { insertDefectSchema } from "@shared/schema";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 const formSchema = insertDefectSchema.extend({
   reportedBy: z.string().min(1, "Reporter name is required"),
@@ -63,6 +64,11 @@ export default function Defects() {
 
   const { data: requirements } = useQuery<Requirement[]>({
     queryKey: ["/api/requirements"],
+    enabled: isModalOpen,
+  });
+
+  const { data: testScenarios } = useQuery<TestScenario[]>({
+    queryKey: ["/api/test-scenarios"],
     enabled: isModalOpen,
   });
 
@@ -232,7 +238,7 @@ export default function Defects() {
                     Report Defect
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>{editingDefect ? "Edit Defect" : "Report New Defect"}</DialogTitle>
                   </DialogHeader>
@@ -263,13 +269,40 @@ export default function Defects() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Description</FormLabel>
+                            <RichTextEditor
+                              content={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="Detailed description of the defect..."
+                              data-testid="rich-text-editor-defect-description"
+                            />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="attachments"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Attachments</FormLabel>
                             <FormControl>
-                              <Textarea 
-                                rows={3} 
-                                placeholder="Detailed description of the defect..." 
-                                {...field} 
-                                data-testid="textarea-defect-description"
-                              />
+                              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                                <div className="text-muted-foreground">
+                                  <p className="text-sm">Drag and drop files here, or click to browse</p>
+                                  <p className="text-xs mt-1">Supported formats: PNG, JPG, PDF, TXT (Max 10MB)</p>
+                                </div>
+                                <Input
+                                  type="file"
+                                  multiple
+                                  accept=".png,.jpg,.jpeg,.pdf,.txt"
+                                  className="hidden"
+                                  data-testid="input-defect-attachments"
+                                />
+                                <Button type="button" variant="outline" className="mt-2" size="sm">
+                                  Choose Files
+                                </Button>
+                              </div>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -465,23 +498,50 @@ export default function Defects() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <FormField
                           control={form.control}
                           name="linkedTestCaseId"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Linked Test Case</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value || ""}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-linked-test-case">
                                     <SelectValue placeholder="Select test case" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
+                                  <SelectItem value="">None</SelectItem>
                                   {testCases?.map((testCase) => (
                                     <SelectItem key={testCase.id} value={testCase.id}>
                                       {testCase.testCaseId || testCase.name || testCase.title}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="linkedScenarioId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Linked Test Scenario</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || ""}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-linked-test-scenario">
+                                    <SelectValue placeholder="Select test scenario" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="">None</SelectItem>
+                                  {testScenarios?.map((scenario) => (
+                                    <SelectItem key={scenario.id} value={scenario.id}>
+                                      {scenario.scenarioId} - {scenario.title}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -497,13 +557,14 @@ export default function Defects() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Linked Requirement</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value || ""}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-linked-requirement">
                                     <SelectValue placeholder="Select requirement" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
+                                  <SelectItem value="">None</SelectItem>
                                   {requirements?.map((requirement) => (
                                     <SelectItem key={requirement.id} value={requirement.id}>
                                       {requirement.requirementId} - {requirement.title}
@@ -697,9 +758,14 @@ export default function Defects() {
                     </div>
                     
                     {defect.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
-                        {defect.description}
-                      </p>
+                      <div className="text-sm text-muted-foreground line-clamp-3 mb-3">
+                        <div 
+                          className="prose prose-sm max-w-none text-muted-foreground [&>*]:text-muted-foreground"
+                          dangerouslySetInnerHTML={{
+                            __html: defect.description
+                          }}
+                        />
+                      </div>
                     )}
                   </CardHeader>
                   <CardContent className="pt-0">

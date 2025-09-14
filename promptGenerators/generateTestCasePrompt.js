@@ -26,9 +26,7 @@ export function generateTestCasePrompt(scenario) {
     priority = 'Medium' 
   } = scenario;
   
-  const prompt = `You are a senior QA analyst with 15+ years of experience in detailed test case design and execution. Your expertise includes writing comprehensive, executable test cases that cover all edge cases and provide clear guidance for manual and automated testing.
-
-TASK: Analyze the following test scenario and generate 2-3 detailed, executable test cases that thoroughly cover the scenario requirements.
+  const prompt = `TASK: Analyze the following test scenario and generate detailed, executable test cases that thoroughly cover the scenario requirements.
 
 SCENARIO DETAILS:
 - Scenario ID: ${scenario_id}
@@ -39,7 +37,7 @@ SCENARIO DETAILS:
 
 INSTRUCTIONS:
 1. Act as a senior QA analyst and design comprehensive test cases
-2. Generate exactly 2-3 detailed test cases that cover different aspects of this scenario
+2. Generate detailed test cases that cover different aspects of this scenario
 3. Each test case must be executable by a QA tester with clear, step-by-step instructions
 4. Include both positive flow and edge case/negative testing where applicable
 5. Consider boundary conditions, error handling, and user experience aspects
@@ -64,8 +62,8 @@ REQUIRED JSON FORMAT:
         "2. Second action step with expected immediate result",
         "3. Continue with numbered steps that are atomic and clear"
       ],
-      "test_data": "Specific data values, inputs, or parameters needed for the test",
-      "expected_result": "Clear description of the final expected outcome and success criteria"
+      "test_data": "Specific data values, inputs, or parameters needed for the test step as applicable",
+      "expected_result": "Clear description of the final expected outcome and success criteria per step"
     }
   ]
 }
