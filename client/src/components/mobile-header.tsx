@@ -18,6 +18,25 @@ const navigation = [
   { name: "Test Runs", href: "/test-runs", icon: Zap },
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ];
+import { 
+  LayoutDashboard, 
+  FileText, 
+  TestTube2,
+  Archive, 
+  Zap, 
+  BarChart3,
+  ClipboardList
+} from "lucide-react";
+
+const navigation = [
+  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Requirements", href: "/requirements", icon: ClipboardList },
+  { name: "Test Scenarios", href: "/test-scenarios", icon: TestTube2 },
+  { name: "Test Cases", href: "/test-cases", icon: FileText },
+  { name: "Test Suites", href: "/test-suites", icon: Archive },
+  { name: "Test Runs", href: "/test-runs", icon: Zap },
+  { name: "Reports", href: "/reports", icon: BarChart3 },
+];
 
 export default function MobileHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
