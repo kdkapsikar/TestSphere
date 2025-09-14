@@ -111,10 +111,16 @@ export default function Requirements() {
   });
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
+    // Auto-generate requirement ID if not provided
+    const requirementData = {
+      ...data,
+      requirementId: data.requirementId || `REQ-${Date.now().toString().slice(-6)}`
+    };
+    
     if (editingRequirement) {
-      updateRequirementMutation.mutate({ id: editingRequirement.id, data });
+      updateRequirementMutation.mutate({ id: editingRequirement.id, data: requirementData });
     } else {
-      createRequirementMutation.mutate(data);
+      createRequirementMutation.mutate(requirementData);
     }
   };
 
@@ -182,25 +188,6 @@ export default function Requirements() {
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                       <FormField
                         control={form.control}
-                        name="requirementId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Requirement ID</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="e.g., REQ-001" 
-                                {...field}
-                                value={field.value || ""}
-                                data-testid="input-requirement-id"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
                         name="title"
                         render={({ field }) => (
                           <FormItem>
@@ -225,13 +212,24 @@ export default function Requirements() {
                             <FormLabel>Description</FormLabel>
                             <FormControl>
                               <Textarea 
-                                rows={3} 
-                                placeholder="Describe the requirement..." 
+                                rows={6} 
+                                placeholder="Describe the requirement... 
+
+You can use:
+• **Bold text** for emphasis
+• *Italic text* for notes
+• - Bullet points for lists
+• 1. Numbered lists for steps
+• `Code snippets` for technical details" 
                                 {...field}
                                 value={field.value || ""}
                                 data-testid="textarea-requirement-description"
+                                className="font-mono text-sm"
                               />
                             </FormControl>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Supports basic markdown formatting for better organization
+                            </p>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -384,7 +382,18 @@ export default function Requirements() {
                     </div>
                     {requirement.description && (
                       <p className="text-sm text-muted-foreground line-clamp-2" data-testid="requirement-description">
-                        {requirement.description}
+                        <div 
+                          className="prose prose-sm max-w-none text-muted-foreground"
+                          dangerouslySetInnerHTML={{
+                            __html: requirement.description
+                              ?.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                              ?.replace(/\*(.*?)\*/g, '<em>$1</em>')
+                              ?.replace(/`(.*?)`/g, '<code class="bg-muted px-1 rounded text-xs">$1</code>')
+                              ?.replace(/^- (.+)$/gm, '• $1')
+                              ?.replace(/^\d+\. (.+)$/gm, '$&')
+                              ?.replace(/\n/g, '<br>')
+                          }}
+                        />
                       </p>
                     )}
                   </CardHeader>
