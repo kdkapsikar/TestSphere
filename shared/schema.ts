@@ -164,6 +164,8 @@ export const defects = pgTable("defects", {
 export const insertRequirementSchema = createInsertSchema(requirements).omit({
   id: true,
   dateCreated: true,
+}).extend({
+  author: z.string().optional(),
 });
 
 export const insertTestScenarioSchema = createInsertSchema(testScenarios).omit({

@@ -215,12 +215,6 @@ export default function Requirements() {
                                 placeholder="Describe the requirement in detail..."
                                 data-testid="rich-text-editor-description"
                               />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
                       <FormField
                         control={form.control}
                         name="module"
@@ -268,7 +262,7 @@ export default function Requirements() {
                         name="author"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Author *</FormLabel>
+                            <FormLabel>Author</FormLabel>
                             <FormControl>
                               <Input 
                                 placeholder="Enter author name" 
@@ -369,20 +363,12 @@ export default function Requirements() {
                     {requirement.description && (
                       <p className="text-sm text-muted-foreground line-clamp-2" data-testid="requirement-description">
                         <div 
-                          className="prose prose-sm max-w-none text-muted-foreground [&>*]:text-muted-foreground"
-                          dangerouslySetInnerHTML={{
-                            __html: requirement.description
-                          }}
-                        />
-                      </p>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {requirement.module && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Module</span>
-                          <span className="font-medium" data-testid="requirement-module">{requirement.module}</span>
+                          <div 
+                            className="prose prose-sm max-w-none text-muted-foreground [&>*]:text-muted-foreground"
+                            dangerouslySetInnerHTML={{
+                              __html: requirement.description
+                            }}
+                          />
                         </div>
                       )}
                       
