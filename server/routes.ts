@@ -655,21 +655,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           errors.push({
             scenario_id: scenario.scenario_id,
             title: scenario.title,
-            status: 'failed',
+            error: dbError instanceof Error ? dbError.message : String(dbError)
             error: dbError.message || 'Database error'
           });
           scenarioResults.push({
             scenario_id: scenario.scenario_id,
             title: scenario.title,
             status: 'failed',
-            error: dbError.message || 'Database error'
+            error: dbError instanceof Error ? dbError.message : String(dbError)
           });
         }
       }
 
       // Determine response status code based on results
       const successCount = createdScenarios.length;
-      const totalCount = validatedResponse.scenarios.length;
+      const totalCount = validatedResponse.test_cases.length;
       
       if (successCount === 0) {
         return res.status(500).json({ 
