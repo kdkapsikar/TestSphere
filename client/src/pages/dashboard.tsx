@@ -30,7 +30,7 @@ export default function Dashboard() {
                 data-testid="button-new-requirement"
               >
                 <ClipboardList className="w-4 h-4 mr-2" />
-                New Requirement
+                Requirements
               </Button>
               <Button 
                 variant="outline" 
@@ -38,11 +38,15 @@ export default function Dashboard() {
                 data-testid="button-new-scenario"
               >
                 <TestTube2 className="w-4 h-4 mr-2" />
-                New Scenario
+                Test Scenarios
               </Button>
-              <Button onClick={() => setLocation("/test-cases")} data-testid="button-new-test-case">
+              <Button 
+                variant="outline" 
+                onClick={() => setLocation("/test-cases")} 
+                data-testid="button-new-test-case"
+              >
                 <FileText className="w-4 h-4 mr-2" />
-                New Test Case
+                Test Cases
               </Button>
               <Button variant="secondary" data-testid="button-export-report">
                 <Download className="w-4 h-4 mr-2" />
