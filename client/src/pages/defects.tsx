@@ -243,8 +243,7 @@ export default function Defects() {
                     <DialogTitle>{editingDefect ? "Edit Defect" : "Report New Defect"}</DialogTitle>
                   </DialogHeader>
                   
-                  <div className="max-h-[75vh] overflow-y-auto pr-2">
-                    <Form {...form}>
+                  <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                       <FormField
                         control={form.control}
@@ -385,13 +384,14 @@ export default function Defects() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Environment</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
+                              <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-defect-environment">
                                     <SelectValue placeholder="Select environment" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
+                                  <SelectItem value="none">None</SelectItem>
                                   <SelectItem value="development">Development</SelectItem>
                                   <SelectItem value="staging">Staging</SelectItem>
                                   <SelectItem value="production">Production</SelectItem>
@@ -507,14 +507,14 @@ export default function Defects() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Linked Test Case</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-linked-test-case">
                                     <SelectValue placeholder="Select test case" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="">None</SelectItem>
+                                  <SelectItem value="none">None</SelectItem>
                                   {testCases?.map((testCase) => (
                                     <SelectItem key={testCase.id} value={testCase.id}>
                                       {testCase.testCaseId || testCase.name || testCase.title}
@@ -533,14 +533,14 @@ export default function Defects() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Linked Test Scenario</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-linked-test-scenario">
                                     <SelectValue placeholder="Select test scenario" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="">None</SelectItem>
+                                  <SelectItem value="none">None</SelectItem>
                                   {testScenarios?.map((scenario) => (
                                     <SelectItem key={scenario.id} value={scenario.id}>
                                       {scenario.scenarioId} - {scenario.title}
@@ -559,14 +559,14 @@ export default function Defects() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Linked Requirement</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value || ""}>
+                              <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
                                 <FormControl>
                                   <SelectTrigger data-testid="select-linked-requirement">
                                     <SelectValue placeholder="Select requirement" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="">None</SelectItem>
+                                  <SelectItem value="none">None</SelectItem>
                                   {requirements?.map((requirement) => (
                                     <SelectItem key={requirement.id} value={requirement.id}>
                                       {requirement.requirementId} - {requirement.title}
@@ -652,13 +652,14 @@ export default function Defects() {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Resolution Type</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} value={field.value || "none"}>
                                   <FormControl>
                                     <SelectTrigger data-testid="select-resolution-type">
                                       <SelectValue placeholder="Select resolution type" />
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
+                                    <SelectItem value="none">None</SelectItem>
                                     <SelectItem value="fixed">Fixed</SelectItem>
                                     <SelectItem value="duplicate">Duplicate</SelectItem>
                                     <SelectItem value="not_a_bug">Not a Bug</SelectItem>
@@ -686,8 +687,7 @@ export default function Defects() {
                         </Button>
                       </div>
                     </form>
-                    </Form>
-                  </div>
+                  </Form>
                 </DialogContent>
               </Dialog>
             </div>

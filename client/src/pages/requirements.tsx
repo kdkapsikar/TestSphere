@@ -182,8 +182,7 @@ export default function Requirements() {
                     <DialogTitle>{editingRequirement ? "Edit Requirement" : "Create New Requirement"}</DialogTitle>
                   </DialogHeader>
                   
-                  <div className="max-h-[70vh] overflow-y-auto pr-2">
-                    <Form {...form}>
+                  <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                       <FormField
                         control={form.control}
@@ -303,8 +302,7 @@ export default function Requirements() {
                         </Button>
                       </div>
                     </form>
-                    </Form>
-                  </div>
+                  </Form>
                 </DialogContent>
               </Dialog>
             </div>
