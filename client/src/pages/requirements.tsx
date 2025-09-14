@@ -12,12 +12,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Requirement } from "@shared/schema";
 import { insertRequirementSchema } from "@shared/schema";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 const formSchema = insertRequirementSchema;
 
@@ -30,7 +30,6 @@ export default function Requirements() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      requirementId: "",
       title: "",
       description: "",
       module: "",
@@ -111,10 +110,10 @@ export default function Requirements() {
   });
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
-    // Auto-generate requirement ID if not provided
+    // Auto-generate requirement ID
     const requirementData = {
       ...data,
-      requirementId: data.requirementId || `REQ-${Date.now().toString().slice(-6)}`
+      requirementId: `REQ-${Date.now().toString().slice(-6)}`
     };
     
     if (editingRequirement) {
@@ -127,7 +126,6 @@ export default function Requirements() {
   const handleEditRequirement = (requirement: Requirement) => {
     setEditingRequirement(requirement);
     form.reset({
-      requirementId: requirement.requirementId || "",
       title: requirement.title,
       description: requirement.description || "",
       module: requirement.module || "",
@@ -211,25 +209,13 @@ export default function Requirements() {
                           <FormItem>
                             <FormLabel>Description</FormLabel>
                             <FormControl>
-                              <Textarea 
-                                rows={6} 
-                                placeholder="Describe the requirement... 
-
-You can use:
-• **Bold text** for emphasis
-• *Italic text* for notes
-• - Bullet points for lists
-• 1. Numbered lists for steps
-• `Code snippets` for technical details" 
-                                {...field}
-                                value={field.value || ""}
-                                data-testid="textarea-requirement-description"
-                                className="font-mono text-sm"
+                              <RichTextEditor
+                                content={field.value || ""}
+                                onChange={field.onChange}
+                                placeholder="Describe the requirement in detail..."
+                                data-testid="rich-text-editor-description"
                               />
                             </FormControl>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Supports basic markdown formatting for better organization
-                            </p>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -383,15 +369,9 @@ You can use:
                     {requirement.description && (
                       <p className="text-sm text-muted-foreground line-clamp-2" data-testid="requirement-description">
                         <div 
-                          className="prose prose-sm max-w-none text-muted-foreground"
+                          className="prose prose-sm max-w-none text-muted-foreground [&>*]:text-muted-foreground"
                           dangerouslySetInnerHTML={{
                             __html: requirement.description
-                              ?.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                              ?.replace(/\*(.*?)\*/g, '<em>$1</em>')
-                              ?.replace(/`(.*?)`/g, '<code class="bg-muted px-1 rounded text-xs">$1</code>')
-                              ?.replace(/^- (.+)$/gm, '• $1')
-                              ?.replace(/^\d+\. (.+)$/gm, '$&')
-                              ?.replace(/\n/g, '<br>')
                           }}
                         />
                       </p>
