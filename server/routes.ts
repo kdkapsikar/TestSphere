@@ -650,26 +650,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: 'created',
             id: newScenario.id
           });
-        } catch (dbError) {
-          console.error(`Failed to save scenario ${scenario.scenario_id}:`, dbError);
+        } catch (error) {
+          console.error(`Failed to save scenario ${scenario.scenario_id}:`, error);
+          const errorMessage = error instanceof Error ? error.message : 'Database error';
           errors.push({
             scenario_id: scenario.scenario_id,
             title: scenario.title,
-            error: dbError instanceof Error ? dbError.message : String(dbError)
-            error: dbError.message || 'Database error'
+            error: errorMessage
           });
           scenarioResults.push({
             scenario_id: scenario.scenario_id,
             title: scenario.title,
             status: 'failed',
-            error: dbError instanceof Error ? dbError.message : String(dbError)
+            error: errorMessage
           });
         }
       }
 
       // Determine response status code based on results
       const successCount = createdScenarios.length;
-      const totalCount = validatedResponse.test_cases.length;
+      const totalCount = validatedResponse.scenarios.length;
       
       if (successCount === 0) {
         return res.status(500).json({ 
@@ -893,24 +893,24 @@ app.post('/api/scenarios/:scenarioId/generate-test-cases', async (req, res) => {
           status: 'created',
           id: newTestCase.id
         });
-      } catch (dbError) {
-        console.error(`Failed to save test case ${testCase.title}:`, dbError);
+      } catch (error) {
+        console.error(`Failed to save test case ${testCase.title}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Database error';
         errors.push({
           title: testCase.title,
-          status: 'failed',
-          error: dbError.message || 'Database error'
+          error: errorMessage
         });
         testCaseResults.push({
           title: testCase.title,
           status: 'failed',
-          error: dbError instanceof Error ? dbError.message : 'Database error'
+          error: errorMessage
         });
       }
     }
 
     // Determine response status code based on results
     const successCount = createdTestCases.length;
-          error: dbError instanceof Error ? dbError.message : 'Database error'
+    const totalCount = validatedResponse.test_cases.length;
     
     if (successCount === 0) {
       return res.status(500).json({ 
@@ -1014,7 +1014,7 @@ app.put('/api/test-executions/:executionId', async (req, res) => {
       evidenceUrl: evidence_url?.trim() || null
     };
 
-    const updatedExecution = await storage.updateTestExecution(executionId, executionUpdateData);
+    const updatedExecution = await storage.updateTestExecution(executionId, executionUpdate);
     
     if (!updatedExecution) {
       return res.status(500).json({ 

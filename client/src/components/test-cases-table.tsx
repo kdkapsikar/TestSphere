@@ -90,7 +90,7 @@ export default function TestCasesTable() {
   const filteredTestCases = testCases?.filter((testCase) => {
     const matchesSearch = (testCase.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          testCase.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         testCase.suite?.name.toLowerCase().includes(searchTerm.toLowerCase());
+                         (testCase.suite?.name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || testCase.status === statusFilter;
     
     return matchesSearch && matchesStatus;
