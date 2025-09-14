@@ -208,13 +208,17 @@ export default function Requirements() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Description</FormLabel>
-                            <FormControl>
-                              <RichTextEditor
-                                content={field.value || ""}
-                                onChange={field.onChange}
-                                placeholder="Describe the requirement in detail..."
-                                data-testid="rich-text-editor-description"
-                              />
+                            <RichTextEditor
+                              content={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="Describe the requirement in detail..."
+                              data-testid="rich-text-editor-description"
+                            />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
                       <FormField
                         control={form.control}
                         name="module"
@@ -363,49 +367,56 @@ export default function Requirements() {
                     {requirement.description && (
                       <p className="text-sm text-muted-foreground line-clamp-2" data-testid="requirement-description">
                         <div 
-                          <div 
-                            className="prose prose-sm max-w-none text-muted-foreground [&>*]:text-muted-foreground"
-                            dangerouslySetInnerHTML={{
-                              __html: requirement.description
-                            }}
-                          />
-                        </div>
-                      )}
-                      
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Author</span>
-                        <span className="font-medium" data-testid="requirement-author">{requirement.author}</span>
+                          className="prose prose-sm max-w-none text-muted-foreground [&>*]:text-muted-foreground"
+                          dangerouslySetInnerHTML={{
+                            __html: requirement.description
+                          }}
+                        />
+                      </p>
+                    )}
+                  </CardHeader>
+                  
+                  <CardContent className="pt-0">
+                    {requirement.module && (
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-muted-foreground">Module</span>
+                        <span className="font-medium" data-testid="requirement-module">{requirement.module}</span>
                       </div>
+                    )}
+                    
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Author</span>
+                      <span className="font-medium" data-testid="requirement-author">{requirement.author}</span>
+                    </div>
 
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Created</span>
-                        <span className="font-medium" data-testid="requirement-date">
-                          {new Date(requirement.dateCreated).toLocaleDateString()}
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between pt-4 border-t">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleEditRequirement(requirement)}
-                          data-testid={`button-edit-requirement-${requirement.id}`}
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => deleteRequirementMutation.mutate(requirement.id)}
-                          disabled={deleteRequirementMutation.isPending}
-                          className="text-destructive hover:text-destructive/80"
-                          data-testid={`button-delete-requirement-${requirement.id}`}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </Button>
-                      </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Created</span>
+                      <span className="font-medium" data-testid="requirement-date">
+                        {new Date(requirement.dateCreated).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between pt-4 border-t">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleEditRequirement(requirement)}
+                        data-testid={`button-edit-requirement-${requirement.id}`}
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => deleteRequirementMutation.mutate(requirement.id)}
+                        disabled={deleteRequirementMutation.isPending}
+                        className="text-destructive hover:text-destructive/80"
+                        data-testid={`button-delete-requirement-${requirement.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
