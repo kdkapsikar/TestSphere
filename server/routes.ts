@@ -650,19 +650,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: 'created',
             id: newScenario.id
           });
-        } catch (error) {
-          console.error(`Failed to save scenario ${scenario.scenario_id}:`, error);
-          const errorMessage = error instanceof Error ? error.message : 'Database error';
+        } catch (dbError) {
+          console.error(`Failed to save scenario ${scenario.scenario_id}:`, dbError);
           errors.push({
             scenario_id: scenario.scenario_id,
             title: scenario.title,
-            error: errorMessage
+            status: 'failed',
+            error: dbError.message || 'Database error'
           });
           scenarioResults.push({
             scenario_id: scenario.scenario_id,
             title: scenario.title,
             status: 'failed',
-            error: errorMessage
+            error: dbError.message || 'Database error'
           });
         }
       }
@@ -893,24 +893,24 @@ app.post('/api/scenarios/:scenarioId/generate-test-cases', async (req, res) => {
           status: 'created',
           id: newTestCase.id
         });
-      } catch (error) {
-        console.error(`Failed to save test case ${testCase.title}:`, error);
-        const errorMessage = error instanceof Error ? error.message : 'Database error';
+      } catch (dbError) {
+        console.error(`Failed to save test case ${testCase.title}:`, dbError);
         errors.push({
           title: testCase.title,
-          error: errorMessage
+          status: 'failed',
+          error: dbError.message || 'Database error'
         });
         testCaseResults.push({
           title: testCase.title,
           status: 'failed',
-          error: errorMessage
+          error: dbError.message || 'Database error'
         });
       }
     }
 
     // Determine response status code based on results
     const successCount = createdTestCases.length;
-    const totalCount = validatedResponse.test_cases.length;
+    const totalCount = parsedResponse.test_cases.length;
     
     if (successCount === 0) {
       return res.status(500).json({ 
@@ -1014,7 +1014,7 @@ app.put('/api/test-executions/:executionId', async (req, res) => {
       evidenceUrl: evidence_url?.trim() || null
     };
 
-    const updatedExecution = await storage.updateTestExecution(executionId, executionUpdate);
+    const updatedExecution = await storage.updateTestExecution(executionId, executionUpdateData);
     
     if (!updatedExecution) {
       return res.status(500).json({ 

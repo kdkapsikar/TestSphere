@@ -208,15 +208,13 @@ export default function Requirements() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Description</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                rows={4} 
-                                placeholder="Describe the requirement in detail..." 
-                                {...field}
-                                value={field.value || ""}
-                                data-testid="textarea-requirement-description"
-                              />
-                            </FormControl>
+                            <RichTextEditor
+                              content={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="Describe the requirement in detail..."
+                              data-testid="rich-text-editor-description"
+                              className="min-h-[200px]"
+                            />
                             <FormMessage />
                           </FormItem>
                         )}
@@ -292,7 +290,7 @@ export default function Requirements() {
                           Cancel
                         </Button>
                         <Button 
-                          type="submit"
+                          type="submit" 
                           disabled={createRequirementMutation.isPending || updateRequirementMutation.isPending}
                           data-testid={editingRequirement ? "button-update-requirement" : "button-create-requirement"}
                         >
