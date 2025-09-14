@@ -182,129 +182,127 @@ export default function Requirements() {
                     <DialogTitle>{editingRequirement ? "Edit Requirement" : "Create New Requirement"}</DialogTitle>
                   </DialogHeader>
                   
-                  <div className="max-h-[70vh] overflow-y-auto pr-2">
-                    <Form {...form}>
-                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="title"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Title *</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="Enter requirement title" 
-                                  {...field} 
-                                  data-testid="input-requirement-title"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="description"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Description</FormLabel>
-                              <RichTextEditor
-                                content={field.value || ""}
-                                onChange={field.onChange}
-                                placeholder="Describe the requirement in detail..."
-                                data-testid="rich-text-editor-description"
-                                className="min-h-[200px]"
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Title *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter requirement title" 
+                                {...field} 
+                                data-testid="input-requirement-title"
                               />
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="module"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Module</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="e.g., Authentication, User Management" 
-                                  {...field}
-                                  value={field.value || ""}
-                                  data-testid="input-requirement-module"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description</FormLabel>
+                            <RichTextEditor
+                              content={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="Describe the requirement in detail..."
+                              data-testid="rich-text-editor-description"
+                              className="min-h-[150px]"
+                            />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="module"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Module</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="e.g., Authentication, User Management" 
+                                {...field}
+                                value={field.value || ""}
+                                data-testid="input-requirement-module"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                        <FormField
-                          control={form.control}
-                          name="priority"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Priority *</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger data-testid="select-requirement-priority">
-                                    <SelectValue placeholder="Select priority" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="high">High</SelectItem>
-                                  <SelectItem value="medium">Medium</SelectItem>
-                                  <SelectItem value="low">Low</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="author"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Author</FormLabel>
+                      <FormField
+                        control={form.control}
+                        name="priority"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Priority *</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
-                                <Input 
-                                  placeholder="Enter author name" 
-                                  {...field} 
-                                  data-testid="input-requirement-author"
-                                />
+                                <SelectTrigger data-testid="select-requirement-priority">
+                                  <SelectValue placeholder="Select priority" />
+                                </SelectTrigger>
                               </FormControl>
-                              <FormMessage />
-                            </FormItem>
+                              <SelectContent>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="medium">Medium</SelectItem>
+                                <SelectItem value="low">Low</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="author"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Author</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Enter author name" 
+                                {...field} 
+                                data-testid="input-requirement-author"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div className="flex justify-end space-x-3 pt-4">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={handleCancelEdit}
+                          data-testid="button-cancel"
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          type="submit"
+                          disabled={createRequirementMutation.isPending || updateRequirementMutation.isPending}
+                          data-testid={editingRequirement ? "button-update-requirement" : "button-create-requirement"}
+                        >
+                          {editingRequirement ? (
+                            updateRequirementMutation.isPending ? "Updating..." : "Update Requirement"
+                          ) : (
+                            createRequirementMutation.isPending ? "Creating..." : "Create Requirement"
                           )}
-                        />
-                      </form>
-                    </Form>
-                  </div>
-                  
-                  <div className="sticky bottom-0 bg-background border-t pt-4 flex justify-end space-x-3">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={handleCancelEdit}
-                      data-testid="button-cancel"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={form.handleSubmit(onSubmit)}
-                      disabled={createRequirementMutation.isPending || updateRequirementMutation.isPending}
-                      data-testid={editingRequirement ? "button-update-requirement" : "button-create-requirement"}
-                    >
-                      {editingRequirement ? (
-                        updateRequirementMutation.isPending ? "Updating..." : "Update Requirement"
-                      ) : (
-                        createRequirementMutation.isPending ? "Creating..." : "Create Requirement"
-                      )}
-                    </Button>
-                  </div>
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
                 </DialogContent>
               </Dialog>
             </div>
