@@ -652,17 +652,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         } catch (dbError) {
           console.error(`Failed to save scenario ${scenario.scenario_id}:`, dbError);
+          const errorMessage = dbError instanceof Error ? dbError.message : 'Database error';
+          const errorMessage = dbError instanceof Error ? dbError.message : 'Database error';
           errors.push({
             scenario_id: scenario.scenario_id,
             title: scenario.title,
-            status: 'failed',
-            error: dbError.message || 'Database error'
+            error: errorMessage
+            error: errorMessage
           });
           scenarioResults.push({
             scenario_id: scenario.scenario_id,
             title: scenario.title,
             status: 'failed',
-            error: dbError.message || 'Database error'
+            error: errorMessage
           });
         }
       }
@@ -1014,7 +1016,7 @@ app.put('/api/test-executions/:executionId', async (req, res) => {
       evidenceUrl: evidence_url?.trim() || null
     };
 
-    const updatedExecution = await storage.updateTestExecution(executionId, executionUpdateData);
+    const updatedExecution = await storage.updateTestExecution(executionId, executionUpdate);
     
     if (!updatedExecution) {
       return res.status(500).json({ 
